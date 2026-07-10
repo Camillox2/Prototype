@@ -1,0 +1,20 @@
+{
+  "name": "futmaster",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Manager de futebol original para Web/PWA e Android.",
+  "scripts": {
+    "serve": "npx http-server www -p 8080 -c-1",
+    "verify": "node --check www/app.js",
+    "android:prepare": "node scripts/ensure-android.mjs",
+    "android:build:debug": "npm run android:prepare && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "http-server": "^14.1.1"
+  }
+}
