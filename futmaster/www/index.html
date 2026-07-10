@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="description" content="FutMaster, manager de futebol para Web/PWA e Android." />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="FutMaster, manager de futebol com gestão total do clube para Web/PWA e Android." />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
@@ -16,9 +16,11 @@
       <div class="brand"><div class="brand-mark">FM</div><div><strong>FutMaster</strong><span>Gestão total do clube</span></div></div>
       <nav class="nav-list">
         <button class="nav-item active" data-view="dashboard">Visão geral</button>
+        <button class="nav-item" data-view="calendar">Jogos</button>
         <button class="nav-item" data-view="squad">Elenco</button>
         <button class="nav-item" data-view="academy">Base</button>
-        <button class="nav-item" data-view="staff">Departamentos</button>
+        <button class="nav-item" data-view="staff">Automação</button>
+        <button class="nav-item" data-view="board">Diretoria</button>
         <button class="nav-item" data-view="fans">Sócios e torcida</button>
         <button class="nav-item" data-view="stadium">Ingressos e estádio</button>
         <button class="nav-item" data-view="commercial">Comercial</button>
@@ -28,6 +30,7 @@
         <button class="nav-item" data-view="medical">Médico</button>
         <button class="nav-item" data-view="facilities">Instalações</button>
         <button class="nav-item" data-view="finance">Finanças</button>
+        <button class="nav-item" data-view="world">Mundo</button>
         <button class="nav-item" data-view="history">Histórico</button>
       </nav>
       <div class="sidebar-footer"><button id="new-game-button" class="secondary-button">Novo jogo</button><small>Carreira salva neste dispositivo.</small></div>
@@ -39,14 +42,16 @@
   </div>
   <dialog id="new-game-dialog">
     <form method="dialog" class="dialog-card" id="new-game-form">
-      <div><span class="eyebrow">Começar carreira</span><h2>Escolha seu clube</h2><p>Você poderá administrar tudo manualmente ou contratar diretores para assumir departamentos.</p></div>
+      <div><span class="eyebrow">Começar carreira</span><h2>Escolha seu clube</h2><p>Administre tudo manualmente, delegue setores específicos ou contrate uma diretoria para operar o clube inteiro.</p></div>
       <label>Nome do treinador<input id="manager-name" name="manager" maxlength="30" value="Vitor Camillo" required /></label>
       <label>Clube<select id="club-select" name="club"></select></label>
       <div class="dialog-actions"><button value="cancel" class="secondary-button">Cancelar</button><button value="default" id="start-game-button" class="primary-button">Iniciar carreira</button></div>
     </form>
   </dialog>
+  <script src="core.js" defer></script>
+  <script src="match-engine.js" defer></script>
+  <script src="systems.js" defer></script>
   <script src="app.js" defer></script>
-  <script src="extensions.js" defer></script>
   <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));</script>
 </body>
 </html>
