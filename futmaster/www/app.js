@@ -1,607 +1,610 @@
-const clubs = [
-  {id:'curitiba',name:'Curitiba Athletic',short:'CTA',strength:78,budget:18000000,capacity:36000},
-  {id:'porto',name:'Porto Azul',short:'PAZ',strength:76,budget:15000000,capacity:31000},
-  {id:'serra',name:'Serra Verde',short:'SV',strength:74,budget:13000000,capacity:26000},
-  {id:'litoral',name:'Litoral FC',short:'LFC',strength:72,budget:12000000,capacity:24000},
-  {id:'capital',name:'Capital União',short:'CAP',strength:77,budget:17000000,capacity:34000},
-  {id:'interior',name:'Interior Clube',short:'INT',strength:70,budget:9000000,capacity:19000}
-];
+(function () {
+  'use strict';
 
-const names = ['Lucas Silva','Rafael Souza','Gabriel Lima','Matheus Costa','João Santos','Pedro Rocha','Bruno Mendes','Caio Ribeiro','Henrique Gomes','Arthur Martins','Vitor Almeida','Luan Pereira','Diego Cardoso','Felipe Barbosa','Thiago Moreira','André Carvalho','Eduardo Nunes','Murilo Reis','Gustavo Freitas','Renan Castro'];
-const positions = ['GOL','LD','ZAG','ZAG','LE','VOL','MC','MEI','PD','PE','ATA','GOL','ZAG','VOL','MEI','ATA','LE','MC','PD','ATA'];
-const staffNames = ['Marcelo Tavares','Ricardo Moura','Paulo Nogueira','Sérgio Matos','Daniel Pires','Anderson Faria','Fábio Leite','Roberto Diniz','Carlos Antunes','Márcio Neves'];
-const key = 'futmaster-save-v3';
+  const C = window.FMCore;
+  const Match = window.FMMatch;
+  const Systems = window.FMSystems;
+  const SAVE_KEY = 'futmaster-save-v4';
+  const viewTitles = {
+    dashboard:'Visão geral', calendar:'Jogos e calendário', squad:'Elenco', academy:'Categorias de base',
+    staff:'Departamentos e automação', board:'Diretoria e objetivos', fans:'Sócios e torcida', stadium:'Ingressos e estádio',
+    commercial:'Comercial e marca', tactics:'Táticas', league:'Classificação', transfers:'Mercado e contratos',
+    medical:'Departamento médico', facilities:'Instalações', finance:'Finanças', world:'Mundo do futebol', history:'Histórico e súmulas'
+  };
 
-let state = migrate(JSON.parse(localStorage.getItem(key) || 'null'));
-let view = 'dashboard';
-const root = document.querySelector('#app-view');
-const dialog = document.querySelector('#new-game-dialog');
-const clubSelect = document.querySelector('#club-select');
-clubSelect.innerHTML = clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  let state = loadState();
+  let currentView = 'dashboard';
+  let selectedMatchId = null;
 
-document.querySelectorAll('.nav-item').forEach(button => {
-  button.onclick = () => {
-    view = button.dataset.view;
-    document.querySelectorAll('.nav-item').forEach(x => x.classList.toggle('active', x === button));
+  const root = document.querySelector('#app-view');
+  const dialog = document.querySelector('#new-game-dialog');
+  const clubSelect = document.querySelector('#club-select');
+  clubSelect.innerHTML = C.clubTemplates.map(club => `<option value="${club.id}">${club.name}</option>`).join('');
+
+  document.querySelectorAll('.nav-item').forEach(button => {
+    button.addEventListener('click', () => {
+      currentView = button.dataset.view;
+      selectedMatchId = null;
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item === button));
+      render();
+    });
+  });
+
+  document.querySelector('#new-game-button').addEventListener('click', () => dialog.showModal());
+  document.querySelector('#new-game-form').addEventListener('submit', event => {
+    if (event.submitter?.value === 'cancel') return;
+    event.preventDefault();
+    newGame(clubSelect.value, document.querySelector('#manager-name').value.trim() || 'Treinador');
+    dialog.close();
+  });
+
+  root.addEventListener('click', event => {
+    const actionElement = event.target.closest('[data-action]');
+    if (!actionElement) return;
+    const action = actionElement.dataset.action;
+    const id = actionElement.closest('[data-id]')?.dataset.id || actionElement.dataset.id;
+    try {
+      if (action === 'open-new-game') dialog.showModal();
+      if (action === 'simulate-week') simulateWeek();
+      if (action === 'simulate-month') simulateMultipleWeeks(4);
+      if (action === 'next-season') nextSeason();
+      if (action === 'hire-staff') hireStaff(id);
+      if (action === 'fire-staff') fireStaff(id);
+      if (action === 'toggle-delegation') toggleDelegation(id);
+      if (action === 'hire-board') hireFullBoard();
+      if (action === 'promote-youth') promoteYouth(id);
+      if (action === 'launch-campaign') launchCampaign();
+      if (action === 'upgrade-facility') upgradeFacility(id);
+      if (action === 'buy-player') buyPlayer(id);
+      if (action === 'renew-contract') renewContract(id);
+      if (action === 'list-player') listPlayer(id);
+      if (action === 'treat-player') treatPlayer(id);
+      if (action === 'auto-lineup') autoLineup();
+      if (action === 'match-report') { selectedMatchId = id; currentView = 'history'; render(); }
+      if (action === 'back-history') { selectedMatchId = null; render(); }
+      if (action === 'save-backup') exportSave();
+      if (action === 'reset-season-stats') resetSeasonStatsPreview();
+    } catch (error) {
+      console.error(error);
+      alert(`Não foi possível concluir a ação: ${error.message}`);
+    }
+  });
+
+  root.addEventListener('change', event => {
+    if (!state) return;
+    const element = event.target;
+    const setting = element.dataset.setting;
+    if (!setting) return;
+
+    if (setting === 'automation-mode') {
+      state.automation.mode = element.value;
+      if (element.value === 'manual') Object.values(state.departments).forEach(department => department.delegated = false);
+      if (element.value === 'full') Object.values(state.departments).forEach(department => department.delegated = true);
+    }
+    if (setting === 'auto-hire') state.automation.autoHire = element.checked;
+    if (setting === 'department-policy') state.departments[element.dataset.department].policy = element.value;
+    if (setting === 'department-autonomy') state.departments[element.dataset.department].autonomy = Number(element.value);
+    if (setting === 'formation') state.userTeam.tactics.formation = element.value;
+    if (setting === 'mentality') state.userTeam.tactics.mentality = element.value;
+    if (['pressing','tempo','width','defensiveLine'].includes(setting)) state.userTeam.tactics[setting] = Number(element.value);
+    if (setting === 'marking') state.userTeam.tactics.marking = element.value;
+    if (setting === 'buildUp') state.userTeam.tactics.buildUp = element.value;
+    if (setting === 'counterAttack') state.userTeam.tactics.counterAttack = element.checked;
+    if (setting === 'ticket-price') {
+      const sector = state.stadium.sectors.find(item => item.id === element.dataset.sector);
+      if (sector) sector.price = C.clamp(Number(element.value), 10, 1500);
+    }
+    if (setting === 'membership-price') {
+      const plan = state.fans.membershipPlans.find(item => item.id === element.dataset.plan);
+      if (plan) plan.price = C.clamp(Number(element.value), 10, 600);
+    }
+    if (setting === 'development-focus') {
+      const player = findPlayer(element.dataset.player);
+      if (player) player.developmentFocus = element.value;
+    }
+    saveState();
     render();
-  };
-});
-document.querySelector('#new-game-button').onclick = () => dialog.showModal();
-document.querySelector('#new-game-form').onsubmit = event => {
-  if (event.submitter?.value === 'cancel') return;
-  event.preventDefault();
-  newGame(clubSelect.value, document.querySelector('#manager-name').value);
-  dialog.close();
-};
-
-root.onclick = event => {
-  const target = event.target.closest('[data-action]');
-  if (!target) return;
-  const action = target.dataset.action;
-  const id = target.closest('[data-id]')?.dataset.id;
-  if (action === 'open-new-game') dialog.showModal();
-  if (action === 'simulate') simulateWeek();
-  if (action === 'buy') buyPlayer(Number(id));
-  if (action === 'hire-staff') hireStaff(Number(id));
-  if (action === 'fire-staff') fireStaff(id);
-  if (action === 'toggle-delegation') toggleDelegation(id);
-  if (action === 'promote-youth') promoteYouth(id);
-  if (action === 'campaign') launchCampaign();
-  if (action === 'upgrade') upgradeFacility(id);
-  if (action === 'renew') renewContract(Number(id));
-  if (action === 'heal') treatPlayer(Number(id));
-};
-
-root.onchange = event => {
-  const el = event.target;
-  if (!state) return;
-  if (el.dataset.setting === 'automation') {
-    state.automation.mode = el.value;
-    if (el.value === 'full') Object.values(state.departments).forEach(d => d.delegated = true);
-    if (el.value === 'manual') Object.values(state.departments).forEach(d => d.delegated = false);
-    save(); render();
-  }
-  if (el.dataset.setting === 'ticket-price') {
-    state.fans.ticketPrice = Math.max(10, Math.min(500, Number(el.value) || 50));
-    save(); render();
-  }
-  if (el.dataset.setting === 'membership-price') {
-    state.fans.membershipPrice = Math.max(10, Math.min(300, Number(el.value) || 40));
-    save(); render();
-  }
-  if (el.dataset.setting === 'formation') {
-    state.tactics.formation = el.value; save();
-  }
-  if (el.dataset.setting === 'style') {
-    state.tactics.style = el.value; save();
-  }
-};
-
-function migrate(saved) {
-  if (!saved) return null;
-  if (saved.version === 3) return saved;
-  return null;
-}
-
-function createSquad(seed, youth = false) {
-  return names.slice(0, youth ? 14 : 20).map((name, i) => ({
-    id: seed * 100 + i,
-    name: youth ? `${name.split(' ')[0]} ${['Jr.','Filho','Neto','Santos'][i % 4]}` : name,
-    position: positions[i],
-    age: youth ? 14 + ((i + seed) % 6) : 18 + ((i + seed) % 16),
-    rating: youth ? 45 + ((i * 7 + seed) % 24) : 61 + ((i * 7 + seed) % 24),
-    potential: youth ? 68 + ((i * 9 + seed) % 25) : 70 + ((i * 5 + seed) % 20),
-    fitness: 78 + ((i * 3) % 22),
-    morale: 65 + ((i * 4) % 30),
-    salary: (youth ? 8000 : 45000) + ((i + seed) % 10) * (youth ? 2000 : 9000),
-    contractYears: 1 + ((i + seed) % 4),
-    starter: !youth && i < 11,
-    injuredWeeks: 0,
-    value: (youth ? 0.3 : 2 + ((i + seed) % 12)) * 1000000
-  }));
-}
-
-function createSchedule(ids) {
-  const rounds = [];
-  let rotating = [...ids];
-  for (let i = 0; i < ids.length - 1; i++) {
-    const round = [];
-    for (let j = 0; j < ids.length / 2; j++) {
-      const a = rotating[j], b = rotating[rotating.length - 1 - j];
-      round.push(i % 2 ? {home:b, away:a} : {home:a, away:b});
-    }
-    rounds.push(round);
-    rotating = [rotating[0], rotating.at(-1), ...rotating.slice(1, -1)];
-  }
-  return [...rounds, ...rounds.map(r => r.map(m => ({home:m.away, away:m.home})))];
-}
-
-function createDepartments() {
-  return {
-    football:{name:'Direção de futebol',role:'Diretor de futebol',delegated:false,staff:null},
-    academy:{name:'Categorias de base',role:'Diretor da base',delegated:false,staff:null},
-    scouting:{name:'Scouting',role:'Chefe de scouting',delegated:false,staff:null},
-    medical:{name:'Departamento médico',role:'Chefe médico',delegated:false,staff:null},
-    commercial:{name:'Comercial e patrocínios',role:'Diretor comercial',delegated:false,staff:null},
-    fan:{name:'Sócios e torcedores',role:'Diretor de relacionamento',delegated:false,staff:null},
-    stadium:{name:'Estádio e operações',role:'Gerente de estádio',delegated:false,staff:null},
-    finance:{name:'Finanças',role:'Diretor financeiro',delegated:false,staff:null}
-  };
-}
-
-function createStaffMarket() {
-  return staffNames.map((name, i) => ({
-    id:i+1,
-    name,
-    skill:58 + ((i * 7) % 35),
-    salary:45000 + ((i * 17000) % 120000),
-    role:Object.values(createDepartments())[i % 8].role
-  }));
-}
-
-function newGame(id, manager) {
-  const teams = clubs.map((club, i) => ({
-    ...club, played:0,wins:0,draws:0,losses:0,gf:0,ga:0,points:0,
-    squad:createSquad(i+1)
-  }));
-  const selected = teams.find(t => t.id === id);
-  state = {
-    version:3,
-    manager,
-    clubId:id,
-    season:2026,
-    week:1,
-    round:0,
-    teams,
-    balance:selected.budget,
-    morale:75,
-    confidence:70,
-    reputation:55,
-    tactics:{formation:'4-2-3-1',style:'equilibrado'},
-    fixtures:createSchedule(teams.map(t => t.id)),
-    history:[],
-    ledger:[],
-    market:createSquad(19).slice(5,15).map((p,i)=>({...p,id:i+1,price:Math.round(p.value*1.15)})),
-    academy:{
-      u20:createSquad(40,true).map(p=>({...p,age:17+(p.id%3)})),
-      u17:createSquad(41,true).map(p=>({...p,age:15+(p.id%3)})),
-      u15:createSquad(42,true).map(p=>({...p,age:13+(p.id%3)})),
-      philosophy:'formação técnica',
-      intakeWeek:30
-    },
-    departments:createDepartments(),
-    staffMarket:createStaffMarket(),
-    automation:{mode:'assisted',lastReport:[]},
-    fans:{
-      total:180000 + selected.strength * 4000,
-      members:12000,
-      satisfaction:72,
-      loyalty:68,
-      ticketPrice:65,
-      membershipPrice:45,
-      stadiumCapacity:selected.capacity,
-      attendance:0,
-      occupancy:0,
-      merchandiseRevenue:0,
-      membershipRevenue:0,
-      ticketRevenue:0
-    },
-    sponsors:[
-      {name:'Banco Aurora',value:4200000,years:2},
-      {name:'Energia Sul',value:1800000,years:1}
-    ],
-    facilities:{
-      stadium:{name:'Estádio',level:2,max:5,cost:9000000},
-      training:{name:'Centro de treinamento',level:2,max:5,cost:5000000},
-      academy:{name:'Centro da base',level:1,max:5,cost:4200000},
-      medical:{name:'Centro médico',level:1,max:5,cost:3600000},
-      scouting:{name:'Rede de scouting',level:1,max:5,cost:3000000}
-    },
-    medical:[],
-    commercial:{campaigns:0,storeLevel:1,brandValue:52},
-    objectives:[
-      {text:'Terminar entre os 4 primeiros',progress:0},
-      {text:'Promover 2 atletas da base',progress:0},
-      {text:'Aumentar sócios em 15%',progress:0}
-    ]
-  };
-  ledger('Investimento inicial', state.balance, 'entrada');
-  save(); render();
-}
-
-function team(id){ return state.teams.find(t=>t.id===id); }
-function my(){ return team(state.clubId); }
-function money(v){ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',notation:'compact'}).format(v); }
-function standings(){ return [...state.teams].sort((a,b)=>b.points-a.points||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf); }
-function departmentByRole(role){ return Object.entries(state.departments).find(([,d])=>d.role===role); }
-function averageStaffSkill(){
-  const hired = Object.values(state.departments).map(d=>d.staff).filter(Boolean);
-  return hired.length ? Math.round(hired.reduce((s,x)=>s+x.skill,0)/hired.length) : 35;
-}
-function delegated(id){
-  if (state.automation.mode === 'full') return true;
-  if (state.automation.mode === 'manual') return false;
-  return state.departments[id]?.delegated;
-}
-function ledger(description, amount, type){
-  state.ledger.unshift({week:state.week,description,amount,type});
-  state.ledger = state.ledger.slice(0,80);
-}
-function save(){ localStorage.setItem(key, JSON.stringify(state)); }
-
-function goals(strength){
-  const r=Math.random()*100;
-  return r<15?0:r<48?1:r<78?2:r<94?3:4+(Math.random()<.35?1:0)+(strength>78&&Math.random()<.25?1:0);
-}
-function updateTable(t,gf,ga){
-  t.played++;t.gf+=gf;t.ga+=ga;
-  if(gf>ga){t.wins++;t.points+=3}
-  else if(gf===ga){t.draws++;t.points++}
-  else t.losses++;
-}
-
-function simulateWeek(){
-  if(state.round>=state.fixtures.length){ alert('Temporada concluída.'); return; }
-  state.automation.lastReport=[];
-  runAutomation();
-  payWeeklyCosts();
-  recoverPlayers();
-
-  const results=state.fixtures[state.round].map(match=>{
-    const home=team(match.home),away=team(match.away);
-    const homeBonus = match.home===state.clubId ? tacticalBonus() : 0;
-    const awayBonus = match.away===state.clubId ? tacticalBonus() : 0;
-    let hg=goals(home.strength+3+homeBonus),ag=goals(away.strength+awayBonus);
-    if(home.strength-away.strength>8&&hg<ag)hg++;
-    if(away.strength-home.strength>8&&ag<hg)ag++;
-    updateTable(home,hg,ag);updateTable(away,ag,hg);
-    return{...match,hg,ag};
   });
 
-  const userResult=results.find(x=>x.home===state.clubId||x.away===state.clubId);
-  const userGoals=userResult.home===state.clubId?userResult.hg:userResult.ag;
-  const oppGoals=userResult.home===state.clubId?userResult.ag:userResult.hg;
-  state.morale=Math.max(30,Math.min(100,state.morale+(userGoals>oppGoals?5:userGoals===oppGoals?1:-4)));
-  state.confidence=Math.max(20,Math.min(100,state.confidence+(userGoals>oppGoals?3:userGoals===oppGoals?0:-2)));
-  state.fans.satisfaction=Math.max(25,Math.min(100,state.fans.satisfaction+(userGoals>oppGoals?3:userGoals===oppGoals?0:-2)));
-
-  if(userResult.home===state.clubId) runMatchdayRevenue();
-  else {
-    const awayShare=180000;
-    state.balance+=awayShare; ledger('Cota de visitante',awayShare,'entrada');
+  function attachUserTeam(targetState) {
+    if (!targetState) return targetState;
+    if (Object.prototype.hasOwnProperty.call(targetState, 'userTeam')) delete targetState.userTeam;
+    Object.defineProperty(targetState, 'userTeam', {
+      configurable:true,
+      enumerable:false,
+      get() { return targetState.teams.find(team => team.id === targetState.userTeamId); }
+    });
+    return targetState;
   }
 
-  maybeInjury();
-  developPlayers();
-  state.history.unshift({round:state.round+1,week:state.week,text:`${team(userResult.home).short} ${userResult.hg} x ${userResult.ag} ${team(userResult.away).short}`});
-  state.round++;state.week++;
-  save();render();
-}
-
-function tacticalBonus(){
-  let bonus=0;
-  if(state.tactics.style==='ofensivo') bonus+=1;
-  if(state.morale>80) bonus+=1;
-  if(delegated('football')&&state.departments.football.staff) bonus+=Math.floor(state.departments.football.staff.skill/40);
-  return bonus;
-}
-
-function runMatchdayRevenue(){
-  const f=state.fans;
-  const pricePenalty=Math.max(0,(f.ticketPrice-80)/120);
-  const demand=Math.min(1,0.35+state.reputation/140+f.satisfaction/180-pricePenalty);
-  f.attendance=Math.min(f.stadiumCapacity,Math.round(f.stadiumCapacity*demand));
-  f.occupancy=Math.round((f.attendance/f.stadiumCapacity)*100);
-  const gross=Math.round(f.attendance*f.ticketPrice);
-  const operating=Math.round(gross*0.18);
-  f.ticketRevenue+=gross;
-  state.balance+=gross-operating;
-  ledger('Bilheteria da partida',gross,'entrada');
-  ledger('Operação do estádio',operating,'saída');
-  const store=Math.round(f.attendance*(7+state.commercial.storeLevel*2));
-  f.merchandiseRevenue+=store;
-  state.balance+=store;ledger('Loja e alimentação',store,'entrada');
-}
-
-function payWeeklyCosts(){
-  const playerPayroll=my().squad.reduce((s,p)=>s+p.salary,0)/4;
-  const staffPayroll=Object.values(state.departments).reduce((s,d)=>s+(d.staff?.salary||0),0)/4;
-  const academyCost=(180000+state.facilities.academy.level*45000);
-  const maintenance=120000+state.facilities.stadium.level*50000;
-  const total=Math.round(playerPayroll+staffPayroll+academyCost+maintenance);
-  state.balance-=total;ledger('Folha e custos semanais',total,'saída');
-  const memberIncome=Math.round(state.fans.members*state.fans.membershipPrice/4);
-  state.balance+=memberIncome;state.fans.membershipRevenue+=memberIncome;ledger('Mensalidades de sócios',memberIncome,'entrada');
-}
-
-function recoverPlayers(){
-  my().squad.forEach(p=>{
-    if(p.injuredWeeks>0)p.injuredWeeks--;
-    p.fitness=Math.min(100,p.fitness+6+state.facilities.medical.level);
-  });
-}
-
-function maybeInjury(){
-  const chance=Math.max(.04,.12-state.facilities.medical.level*.012);
-  if(Math.random()<chance){
-    const available=my().squad.filter(p=>p.injuredWeeks===0);
-    const player=available[Math.floor(Math.random()*available.length)];
-    if(player){
-      player.injuredWeeks=1+Math.floor(Math.random()*5);
-      state.medical.unshift({playerId:player.id,diagnosis:'lesão muscular',weeks:player.injuredWeeks});
-      state.automation.lastReport.push(`${player.name} sofreu lesão e ficará fora por ${player.injuredWeeks} semana(s).`);
+  function loadState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (!saved || saved.version !== 4) return null;
+      return attachUserTeam(saved);
+    } catch (error) {
+      console.warn('Save inválido', error);
+      return null;
     }
   }
-}
 
-function developPlayers(){
-  const training=state.facilities.training.level;
-  my().squad.forEach(p=>{
-    p.fitness=Math.max(45,p.fitness-(p.starter?8:3));
-    if(p.age<24&&Math.random()<.08+training*.02&&p.rating<p.potential)p.rating++;
-  });
-  ['u20','u17','u15'].forEach(cat=>state.academy[cat].forEach(p=>{
-    if(Math.random()<.12+state.facilities.academy.level*.025&&p.rating<p.potential)p.rating++;
-  }));
-}
+  function saveState() {
+    if (!state) return;
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  }
 
-function runAutomation(){
-  const report=state.automation.lastReport;
-  if(delegated('fan')&&state.departments.fan.staff){
-    const director=state.departments.fan.staff;
-    if(state.fans.satisfaction<65&&state.balance>300000){
-      const cost=220000;state.balance-=cost;state.fans.satisfaction+=4;state.fans.members+=Math.round(200+director.skill*8);
-      ledger('Campanha automática para torcedores',cost,'saída');
-      report.push(`${director.name} lançou campanha de relacionamento e ganhou novos sócios.`);
+  function newGame(clubId, managerName) {
+    const teams = C.clubTemplates.map((template, index) => C.createTeam(template, index + 1));
+    const userTeam = teams.find(team => team.id === clubId);
+    state = attachUserTeam({
+      version:4,
+      managerName,
+      userTeamId:clubId,
+      season:2026,
+      week:1,
+      round:0,
+      teams,
+      fixtures:C.roundRobin(teams.map(team => team.id)),
+      matchHistory:[],
+      careerHistory:[],
+      news:[],
+      departments:Systems.createDepartments(),
+      staffMarket:Systems.generateStaffMarket(7),
+      automation:{mode:'manual',autoHire:true},
+      fans:Systems.createFanSystem(userTeam),
+      stadium:Systems.createStadium(userTeam),
+      commercial:Systems.createCommercial(userTeam),
+      facilities:Systems.createFacilities(),
+      finance:Systems.createFinance(userTeam),
+      board:{confidence:72,objectives:Systems.createBoardObjectives(userTeam),messages:[]},
+      market:generateMarket(18, userTeam.strength),
+      lastPosition:teams.length,
+      records:{titles:0,bestPosition:null,biggestWin:null,biggestLoss:null},
+      settings:{difficulty:'Normal',matchDetail:'Completo'}
+    });
+    autoLineup(false);
+    addNews('Clube', `${managerName} foi apresentado como novo responsável pelo ${userTeam.name}.`);
+    saveState();
+    render();
+  }
+
+  function generateMarket(size, level) {
+    return Array.from({length:size}, (_, index) => {
+      const player = C.createPlayer(500 + index, index, {clubLevel:level + C.randomInt(-9,7), nationality:C.pick(['Brasil','Argentina','Uruguai','Colômbia','Portugal','Paraguai','Chile'])});
+      player.askingPrice = Math.round(player.value * C.random(0.88, 1.38) / 10_000) * 10_000;
+      player.scoutKnowledge = C.randomInt(28, 82);
+      player.clubName = C.pick(C.clubTemplates.filter(club => club.id !== state?.userTeamId).map(club => club.name));
+      return player;
+    });
+  }
+
+  function addNews(category, text) {
+    state.news.unshift({id:C.uid('news'),season:state.season,week:state.week,category,text});
+    state.news = state.news.slice(0, 120);
+  }
+
+  function teamById(id) { return state.teams.find(team => team.id === id); }
+  function findPlayer(id) {
+    const stringId = String(id);
+    return state.userTeam.squad.find(player => String(player.id) === stringId)
+      || Object.values(state.userTeam.academy).flat().find(player => String(player.id) === stringId)
+      || state.market.find(player => String(player.id) === stringId);
+  }
+
+  function simulateMultipleWeeks(amount) {
+    for (let count = 0; count < amount && state.round < state.fixtures.length; count += 1) simulateWeek(false);
+    saveState(); render();
+  }
+
+  function simulateWeek(renderAfter = true) {
+    if (!state) return;
+    if (state.round >= state.fixtures.length) {
+      alert('A temporada terminou. Inicie a próxima temporada.');
+      return;
+    }
+
+    Systems.processRecovery(state);
+    Systems.runAutomation(state);
+    Systems.processTraining(state);
+    Systems.processWorldAI(state);
+
+    const fixtures = state.fixtures[state.round];
+    let userResult = null;
+    fixtures.forEach(fixture => {
+      const home = teamById(fixture.home);
+      const away = teamById(fixture.away);
+      const result = Match.simulateMatch(home, away, {season:state.season,week:state.week,pressure:isHighPressureMatch(home,away)});
+      result.season = state.season;
+      result.week = state.week;
+      result.round = state.round + 1;
+      Match.applyMatchResult(result, home, away);
+      state.matchHistory.unshift(result);
+      if ([home.id, away.id].includes(state.userTeamId)) userResult = result;
+      if (home.id === state.userTeamId) Systems.processTicketing(state, home, matchImportance(home, away));
+    });
+
+    if (userResult) {
+      processUserResult(userResult);
+      Systems.processFans(state, userResult);
+      updateRecords(userResult);
+    }
+    Systems.processWeeklyEconomy(state);
+    updateBoard();
+    state.round += 1;
+    state.week += 1;
+    refreshMarketIfNeeded();
+    saveState();
+    if (renderAfter) render();
+  }
+
+  function isHighPressureMatch(home, away) {
+    const difference = Math.abs(home.reputation - away.reputation);
+    return difference < 8 || state.round >= state.fixtures.length - 3;
+  }
+
+  function matchImportance(home, away) {
+    const reputation = (home.reputation + away.reputation) / 160;
+    const lateSeason = state.round > state.fixtures.length * 0.7 ? 1.08 : 1;
+    return C.clamp(0.78 + reputation * 0.42, 0.8, 1.35) * lateSeason;
+  }
+
+  function processUserResult(result) {
+    const home = result.homeId === state.userTeamId;
+    const goalsFor = home ? result.homeGoals : result.awayGoals;
+    const goalsAgainst = home ? result.awayGoals : result.homeGoals;
+    const performanceDay = home ? result.performance.homeDay : result.performance.awayDay;
+    const opponent = teamById(home ? result.awayId : result.homeId);
+    const outcome = goalsFor > goalsAgainst ? 'vitória' : goalsFor === goalsAgainst ? 'empate' : 'derrota';
+    const moraleChange = outcome === 'vitória' ? 4 : outcome === 'derrota' ? -4 : 1;
+    state.userTeam.morale = C.clamp(state.userTeam.morale + moraleChange, 20, 98);
+    state.userTeam.chemistry = C.clamp(state.userTeam.chemistry + (outcome === 'vitória' ? 1 : outcome === 'derrota' && C.chance(0.35) ? -1 : 0), 30, 98);
+    state.board.confidence = C.clamp(state.board.confidence + (outcome === 'vitória' ? 2 : outcome === 'derrota' ? -2 : 0), 0, 100);
+    addNews('Partida', `${state.userTeam.name} teve ${outcome} por ${goalsFor} a ${goalsAgainst} contra ${opponent.name}. Desempenho do dia: ${performanceDay}.`);
+    result.injuries.filter(event => event.teamId === state.userTeamId).forEach(event => addNews('Médico', `${findPlayer(event.playerId)?.name || 'Um atleta'} ficará fora por aproximadamente ${event.weeks} semana(s).`));
+    const upset = result.performance.homeOverall - result.performance.awayOverall;
+    if ((home && goalsFor > goalsAgainst && upset < -12) || (!home && goalsFor > goalsAgainst && upset > 12)) addNews('Destaque', 'Uma grande zebra aconteceu: organização, desempenho individual e acontecimentos da partida superaram a diferença de qualidade nominal.');
+  }
+
+  function updateRecords(result) {
+    const home = result.homeId === state.userTeamId;
+    const gf = home ? result.homeGoals : result.awayGoals;
+    const ga = home ? result.awayGoals : result.homeGoals;
+    const difference = gf - ga;
+    if (difference > 0 && (!state.records.biggestWin || difference > state.records.biggestWin.difference)) state.records.biggestWin = {difference,text:`${result.homeShort} ${result.homeGoals} x ${result.awayGoals} ${result.awayShort}`};
+    if (difference < 0 && (!state.records.biggestLoss || difference < state.records.biggestLoss.difference)) state.records.biggestLoss = {difference,text:`${result.homeShort} ${result.homeGoals} x ${result.awayGoals} ${result.awayShort}`};
+  }
+
+  function standings() {
+    return [...state.teams].sort((a,b) => b.points-a.points || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf || b.wins-a.wins);
+  }
+
+  function updateBoard() {
+    const position = standings().findIndex(team => team.id === state.userTeamId) + 1;
+    state.lastPosition = position;
+    const operationalResult = state.finance.seasonRevenue - state.finance.seasonExpenses;
+    state.board.objectives.find(item => item.id === 'league').progress = Math.round((state.teams.length-position+1)/state.teams.length*100);
+    state.board.objectives.find(item => item.id === 'finance').progress = operationalResult >= 0 ? 100 : C.clamp(100 + Math.round(operationalResult/100_000),0,100);
+    state.board.objectives.find(item => item.id === 'fans').progress = C.clamp(Math.round((state.fans.satisfaction + state.fans.membershipPlans.reduce((sum,plan)=>sum+plan.members,0)/200)/2),0,100);
+    const academyPlayers = state.userTeam.squad.filter(player => player.age <= 21 && player.appearances >= 2).length;
+    state.board.objectives.find(item => item.id === 'academy').progress = C.clamp(academyPlayers * 50,0,100);
+    const averageProgress = state.board.objectives.reduce((sum,item)=>sum+item.progress,0)/state.board.objectives.length;
+    state.board.confidence = C.clamp(Math.round(state.board.confidence*0.93 + averageProgress*0.07),0,100);
+  }
+
+  function refreshMarketIfNeeded() {
+    if (state.week % 3 !== 0) return;
+    state.market = [...generateMarket(5, C.calculateTeamOverall(state.userTeam)), ...state.market]
+      .sort((a,b) => b.scoutKnowledge-a.scoutKnowledge)
+      .slice(0, 28);
+  }
+
+  function nextSeason() {
+    if (state.round < state.fixtures.length) return alert('A temporada atual ainda não terminou.');
+    const position = standings().findIndex(team => team.id === state.userTeamId) + 1;
+    if (position === 1) { state.records.titles += 1; addNews('Título', `${state.userTeam.name} conquistou o campeonato da temporada ${state.season}.`); }
+    state.careerHistory=[...state.matchHistory,...(state.careerHistory||[])].slice(0,1000);
+    Systems.advanceSeason(state);
+    state.staffMarket = [...state.staffMarket, ...Systems.generateStaffMarket(state.season)].slice(-30);
+    state.market = generateMarket(20, C.calculateTeamOverall(state.userTeam));
+    saveState(); render();
+  }
+
+  function hireStaff(staffId) {
+    const staff = state.staffMarket.find(item => String(item.id) === String(staffId));
+    if (!staff) return;
+    if (state.finance.balance < staff.signingFee) return alert('Caixa insuficiente para as luvas desse profissional.');
+    const department = state.departments[staff.departmentId];
+    if (department.staff) {
+      const severance = department.staff.salary * 8;
+      if (state.finance.balance < staff.signingFee + severance) return alert('Caixa insuficiente considerando a rescisão do atual responsável.');
+      Systems.addCashFlow(state,'Despesa','Rescisão',-severance,`Rescisão de ${department.staff.name}`);
+    }
+    department.staff = staff;
+    department.delegated = true;
+    department.lastDecision = `${staff.name} assumiu o departamento.`;
+    state.staffMarket = state.staffMarket.filter(item => item.id !== staff.id);
+    Systems.addCashFlow(state,'Despesa','Contratação',-staff.signingFee,`${staff.name} contratado como ${staff.role}`);
+    saveState(); render();
+  }
+
+  function fireStaff(departmentId) {
+    const department = state.departments[departmentId];
+    if (!department?.staff) return;
+    const severance = department.staff.salary * 8;
+    if (state.finance.balance < severance) return alert('Caixa insuficiente para pagar a rescisão.');
+    Systems.addCashFlow(state,'Despesa','Rescisão',-severance,`Rescisão de ${department.staff.name}`);
+    department.staff = null;
+    department.delegated = false;
+    department.lastDecision = 'Departamento sem responsável.';
+    saveState(); render();
+  }
+
+  function toggleDelegation(departmentId) {
+    const department = state.departments[departmentId];
+    if (!department) return;
+    department.delegated = !department.delegated;
+    if (department.delegated && !department.staff) alert('A área foi marcada para delegação, mas precisa de um responsável contratado.');
+    if (state.automation.mode === 'manual' && department.delegated) state.automation.mode = 'assisted';
+    saveState(); render();
+  }
+
+  function hireFullBoard() {
+    let hired = 0;
+    Object.keys(state.departments).forEach(id => { if (Systems.autoHireDirector(state,id)) hired += 1; state.departments[id].delegated = true; });
+    state.automation.mode = 'full';
+    addNews('Administração', `${hired} responsável(is) foram contratados e todas as áreas passaram ao modo automático.`);
+    saveState(); render();
+  }
+
+  function promoteYouth(playerId) {
+    for (const [category, players] of Object.entries(state.userTeam.academy)) {
+      const player = players.find(item => String(item.id) === String(playerId));
+      if (!player) continue;
+      if (player.age < 16) return alert('O atleta ainda é muito jovem para o elenco profissional.');
+      state.userTeam.academy[category] = players.filter(item => item.id !== player.id);
+      player.contractYears = 4;
+      player.wage = C.wageFromOverall(player.overall,player.age);
+      player.promisedRole = 'Jovem promessa';
+      state.userTeam.squad.push(player);
+      addNews('Base', `${player.name} foi promovido do ${category} ao elenco profissional.`);
+      saveState(); render(); return;
     }
   }
-  if(delegated('commercial')&&state.departments.commercial.staff){
-    const director=state.departments.commercial.staff;
-    if(Math.random()<.22){
-      const revenue=150000+director.skill*6000;
-      state.balance+=revenue;state.commercial.brandValue=Math.min(100,state.commercial.brandValue+1);
-      ledger('Ação comercial automática',revenue,'entrada');
-      report.push(`${director.name} fechou uma ação comercial de ${money(revenue)}.`);
+
+  function launchCampaign() {
+    const cost = 180_000;
+    if (state.finance.balance < cost) return alert('Caixa insuficiente para a campanha.');
+    Systems.addCashFlow(state,'Despesa','Relacionamento',-cost,'Campanha ampla de sócio-torcedor');
+    const relationshipSkill = state.departments.supporters.staff?.skill || 45;
+    const newMembers = Math.round(1200 * (0.7 + relationshipSkill/100) * (0.75+state.fans.satisfaction/150));
+    state.fans.membershipPlans[0].members += newMembers;
+    state.fans.satisfaction = C.clamp(state.fans.satisfaction + 2,0,100);
+    addNews('Torcida', `A campanha conquistou aproximadamente ${newMembers} novos sócios.`);
+    saveState(); render();
+  }
+
+  function upgradeFacility(facilityId) {
+    const facility = state.facilities[facilityId];
+    if (!facility || facility.level >= facility.max) return;
+    const cost = Math.round(facility.baseCost * Math.pow(1.48,facility.level-1));
+    if (state.finance.balance < cost) return alert('Caixa insuficiente para essa melhoria.');
+    Systems.addCashFlow(state,'Despesa','Infraestrutura',-cost,`Melhoria de ${facility.name} para o nível ${facility.level+1}`);
+    facility.level += 1;
+    if (facilityId === 'stadium') { state.stadium.capacity += 1500; state.stadium.sectors[0].capacity += 700; state.stadium.sectors[1].capacity += 500; state.stadium.sectors[2].capacity += 250; state.stadium.sectors[3].capacity += 50; }
+    addNews('Infraestrutura', `${facility.name} alcançou o nível ${facility.level}.`);
+    saveState(); render();
+  }
+
+  function buyPlayer(playerId) {
+    const player = state.market.find(item => String(item.id) === String(playerId));
+    if (!player) return;
+    const totalCost = player.askingPrice + player.wage * 8;
+    if (state.finance.balance < totalCost || state.finance.transferBudget < player.askingPrice) return alert('Orçamento insuficiente para valor e luvas do contrato.');
+    Systems.addCashFlow(state,'Despesa','Transferência',-totalCost,`Contratação de ${player.name}`);
+    state.finance.transferBudget -= player.askingPrice;
+    player.contractYears = 4;
+    player.happiness = 82;
+    state.userTeam.squad.push(player);
+    state.market = state.market.filter(item => item.id !== player.id);
+    addNews('Mercado', `${player.name} foi contratado por ${C.money(player.askingPrice)}.`);
+    saveState(); render();
+  }
+
+  function renewContract(playerId) {
+    const player = state.userTeam.squad.find(item => String(item.id) === String(playerId));
+    if (!player) return;
+    const signingFee = player.wage * 10;
+    if (state.finance.balance < signingFee) return alert('Caixa insuficiente para as luvas da renovação.');
+    Systems.addCashFlow(state,'Despesa','Contrato',-signingFee,`Luvas da renovação de ${player.name}`);
+    player.contractYears = 3;
+    player.wage = Math.round(player.wage * (1.08 + Math.max(0,player.overall-C.calculateTeamOverall(state.userTeam))/100));
+    player.happiness = C.clamp(player.happiness+8,0,100);
+    saveState(); render();
+  }
+
+  function listPlayer(playerId) {
+    const player = state.userTeam.squad.find(item => String(item.id) === String(playerId));
+    if (!player) return;
+    player.transferListed = !player.transferListed;
+    addNews('Mercado', `${player.name} ${player.transferListed?'foi colocado':'foi retirado'} da lista de transferências.`);
+    saveState(); render();
+  }
+
+  function treatPlayer(playerId) {
+    const player = state.userTeam.squad.find(item => String(item.id) === String(playerId));
+    if (!player || player.injuredWeeks <= 0) return;
+    const cost = 75_000 + player.injuredWeeks*18_000;
+    if (state.finance.balance < cost) return alert('Caixa insuficiente para o tratamento intensivo.');
+    Systems.addCashFlow(state,'Despesa','Tratamento médico',-cost,`Tratamento intensivo de ${player.name}`);
+    if (C.chance(0.68 + state.facilities.medical.level/25)) player.injuredWeeks = Math.max(0,player.injuredWeeks-1);
+    saveState(); render();
+  }
+
+  function autoLineup(shouldRender = true) {
+    if (!state) return;
+    const lineup = C.selectBestLineup(state.userTeam,state.userTeam.tactics.formation);
+    state.userTeam.squad.forEach(player => { player.starter = lineup.starters.some(entry => entry.player.id === player.id); player.squadRole = player.starter?'Titular':'Reserva'; });
+    if (shouldRender) { saveState(); render(); }
+  }
+
+  function exportSave() {
+    const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = `futmaster-${state.userTeam.short}-${state.season}-semana-${state.week}.json`; anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function resetSeasonStatsPreview() {
+    alert('As estatísticas são reiniciadas automaticamente ao avançar para a próxima temporada. O histórico de carreira permanece salvo.');
+  }
+
+  function card(label,value,detail,status='') {
+    return `<div class="card stat-card ${status}"><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`;
+  }
+
+  function progress(value) { return `<div class="progress"><span style="width:${C.clamp(value,0,100)}%"></span></div>`; }
+  function statusPill(text,tone='good') { return `<span class="status ${tone}">${text}</span>`; }
+  function formatForm(team) { return team.formSequence.length ? team.formSequence.map(item=>`<span class="form-dot ${item.toLowerCase()}">${item}</span>`).join('') : '<span class="muted">—</span>'; }
+
+  function render() {
+    document.querySelector('#season-label').textContent = state?.season || 2026;
+    document.querySelector('#club-badge').textContent = state?.userTeam?.short || 'FM';
+    document.querySelector('#page-title').textContent = viewTitles[currentView] || 'FutMaster';
+    if (!state) {
+      root.innerHTML = `<div class="empty-state"><div class="brand-mark large">FM</div><h2>Comece sua carreira</h2><p>Administre futebol, base, torcida, estádio, finanças e todos os departamentos.</p><button class="primary-button" data-action="open-new-game">Criar carreira</button></div>`;
+      return;
     }
+    const views = {dashboard:renderDashboard,calendar:renderCalendar,squad:renderSquad,academy:renderAcademy,staff:renderStaff,board:renderBoard,fans:renderFans,stadium:renderStadium,commercial:renderCommercial,tactics:renderTactics,league:renderLeague,transfers:renderTransfers,medical:renderMedical,facilities:renderFacilities,finance:renderFinance,world:renderWorld,history:renderHistory};
+    (views[currentView] || renderDashboard)();
   }
-  if(delegated('academy')&&state.departments.academy.staff){
-    const best=state.academy.u20.filter(p=>p.age>=18).sort((a,b)=>b.potential-a.potential)[0];
-    if(best&&best.rating>=68&&my().squad.length<28){
-      promoteYouth(best.id,true);
-      report.push(`${state.departments.academy.staff.name} promoveu ${best.name} ao elenco principal.`);
-    }
+
+  function renderDashboard() {
+    const table = standings();
+    const position = table.findIndex(team => team.id === state.userTeamId)+1;
+    const nextFixture = state.fixtures[state.round]?.find(match => [match.home,match.away].includes(state.userTeamId));
+    const nextOpponent = nextFixture ? teamById(nextFixture.home===state.userTeamId?nextFixture.away:nextFixture.home) : null;
+    const members = state.fans.membershipPlans.reduce((sum,plan)=>sum+plan.members,0);
+    const delegated = Object.values(state.departments).filter(department=>department.delegated&&department.staff).length;
+    root.innerHTML = `
+      <div class="grid grid-4">
+        ${card('Posição',`${position}º de ${state.teams.length}`,`Overall efetivo ${C.calculateTeamOverall(state.userTeam)}`)}
+        ${card('Caixa',C.money(state.finance.balance),`Transferências: ${C.money(state.finance.transferBudget)}`,state.finance.balance<0?'danger-card':'')}
+        ${card('Sócios',members.toLocaleString('pt-BR'),`Satisfação ${state.fans.satisfaction}%`)}
+        ${card('Automação',state.automation.mode==='full'?'Total':state.automation.mode==='assisted'?'Assistida':'Manual',`${delegated}/8 áreas delegadas`)}
+      </div>
+      <div class="card hero section-gap">
+        <div><span class="eyebrow">Semana ${state.week} · Rodada ${Math.min(state.round+1,state.fixtures.length)}/${state.fixtures.length}</span><h2>${nextOpponent?`${nextFixture.home===state.userTeamId?'Casa':'Fora'} contra ${nextOpponent.name}`:'Temporada concluída'}</h2><p>${nextOpponent?'A partida será calculada jogador por jogador, com tática, moral, físico, forma, entrosamento, eventos e variação de desempenho.':'Finalize a temporada e avance para o próximo ano.'}</p></div>
+        <div class="button-row">${state.round<state.fixtures.length?'<button class="secondary-button" data-action="simulate-month">Simular 4 semanas</button><button class="primary-button" data-action="simulate-week">Avançar uma semana</button>':'<button class="primary-button" data-action="next-season">Iniciar próxima temporada</button>'}</div>
+      </div>
+      <div class="grid grid-2 section-gap">
+        <div class="card"><div class="card-header"><h2>Resumo esportivo</h2><button class="small-button" data-action="auto-lineup">Escalação ideal</button></div>
+          <div class="metric-list">
+            <div><span>Moral do elenco</span><b>${state.userTeam.morale}%</b>${progress(state.userTeam.morale)}</div>
+            <div><span>Entrosamento</span><b>${state.userTeam.chemistry}%</b>${progress(state.userTeam.chemistry)}</div>
+            <div><span>Confiança da diretoria</span><b>${state.board.confidence}%</b>${progress(state.board.confidence)}</div>
+            <div><span>Pressão da torcida</span><b>${state.fans.supporterPressure}%</b>${progress(state.fans.supporterPressure)}</div>
+          </div>
+        </div>
+        <div class="card"><h2>Últimas notícias</h2>${state.news.slice(0,6).map(item=>`<div class="list-item stacked"><span>${item.category} · S${item.week}</span><b>${item.text}</b></div>`).join('')||'<p class="muted">Nenhuma notícia.</p>'}</div>
+      </div>
+      ${state.matchHistory[0]?renderCompactMatch(state.matchHistory[0]):''}
+    `;
   }
-  if(delegated('medical')&&state.departments.medical.staff){
-    const injured=my().squad.filter(p=>p.injuredWeeks>0);
-    injured.forEach(p=>{ if(Math.random()<state.departments.medical.staff.skill/180)p.injuredWeeks=Math.max(0,p.injuredWeeks-1); });
-    if(injured.length)report.push('O departamento médico aplicou protocolos de recuperação.');
+
+  function renderCompactMatch(match) {
+    return `<div class="card section-gap"><div class="card-header"><div><span class="eyebrow">Última partida</span><h2>${match.homeName} ${match.homeGoals} x ${match.awayGoals} ${match.awayName}</h2><p>xG ${match.stats.xg[0]}–${match.stats.xg[1]} · Finalizações ${match.stats.shots[0]}–${match.stats.shots[1]} · Posse ${match.stats.possession[0]}%–${match.stats.possession[1]}%</p></div><button class="secondary-button" data-id="${match.id}" data-action="match-report">Ver súmula</button></div></div>`;
   }
-  if(delegated('scouting')&&state.departments.scouting.staff&&state.market.length<8){
-    const seed=state.week+55;
-    const prospect=createSquad(seed).slice(0,1)[0];
-    prospect.id=Date.now();prospect.price=Math.round(prospect.value*(1.05+Math.random()*.2));
-    state.market.push(prospect);
-    report.push(`${state.departments.scouting.staff.name} adicionou ${prospect.name} à lista de observação.`);
+
+  function renderCalendar() {
+    root.innerHTML = `<div class="card"><div class="card-header"><div><h2>Calendário da liga</h2><p class="muted">Cada rodada simula todas as partidas e mantém os demais clubes ativos.</p></div><button class="primary-button" data-action="simulate-week" ${state.round>=state.fixtures.length?'disabled':''}>Avançar rodada</button></div>
+      <div class="calendar-list">${state.fixtures.map((round,index)=>`<div class="calendar-round ${index===state.round?'current':''}"><h3>Rodada ${index+1} ${index===state.round?statusPill('Próxima'):index<state.round?statusPill('Concluída'):''}</h3>${round.map(fixture=>{
+        const played=state.matchHistory.find(match=>match.round===index+1&&match.homeId===fixture.home&&match.awayId===fixture.away);
+        const home=teamById(fixture.home),away=teamById(fixture.away);
+        return `<div class="fixture ${[fixture.home,fixture.away].includes(state.userTeamId)?'user-fixture':''}"><span>${home.short}</span><b>${played?`${played.homeGoals} x ${played.awayGoals}`:'— x —'}</b><span>${away.short}</span>${played?`<button class="tiny-button" data-id="${played.id}" data-action="match-report">Súmula</button>`:''}</div>`;
+      }).join('')}</div>`).join('')}</div></div>`;
   }
-  if(delegated('finance')&&state.departments.finance.staff&&state.balance<2000000){
-    state.fans.ticketPrice=Math.min(160,state.fans.ticketPrice+5);
-    report.push(`${state.departments.finance.staff.name} reajustou o ingresso para proteger o caixa.`);
+
+  function renderSquad() {
+    const sorted=[...state.userTeam.squad].sort((a,b)=>Number(b.starter)-Number(a.starter)||b.overall-a.overall);
+    root.innerHTML = `<div class="card"><div class="card-header"><div><h2>Elenco profissional</h2><p class="muted">O overall é calculado a partir dos atributos relevantes para cada posição.</p></div><button class="primary-button" data-action="auto-lineup">Selecionar melhores</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Status</th><th>Jogador</th><th>Pos.</th><th>OVR/POT</th><th>Forma</th><th>Moral</th><th>Físico</th><th>Contrato</th><th>Salário</th><th>Ações</th></tr></thead><tbody>${sorted.map(player=>`<tr class="${player.starter?'user-row':''}"><td>${player.injuredWeeks?statusPill(`${player.injuredWeeks} sem.`,'danger'):player.suspensionMatches?statusPill('Suspenso','warning'):player.starter?statusPill('Titular'):statusPill('Reserva','neutral')}</td><td><b>${player.name}</b><small>${player.personality} · ${player.foot}</small></td><td>${player.position}</td><td><b>${player.overall}</b> / ${player.potential}</td><td>${player.form}</td><td>${player.morale}%</td><td>${player.fitness}%</td><td>${player.contractYears} ano(s)</td><td>${C.money(player.wage)}/sem.</td><td><div class="inline-actions"><button class="tiny-button" data-id="${player.id}" data-action="renew-contract">Renovar</button><button class="tiny-button" data-id="${player.id}" data-action="list-player">${player.transferListed?'Retirar':'Listar'}</button></div></td></tr>`).join('')}</tbody></table></div></div>`;
   }
-  if(delegated('stadium')&&state.departments.stadium.staff){
-    state.fans.occupancy=Math.min(100,state.fans.occupancy+1);
+
+  function renderAcademy() {
+    root.innerHTML = `<div class="grid grid-3">${Object.entries(state.userTeam.academy).map(([category,players])=>`<div class="card"><h2>${category}</h2><p>${players.length} atletas · média ${C.round(players.reduce((sum,p)=>sum+p.overall,0)/Math.max(1,players.length),1)}</p>${[...players].sort((a,b)=>b.potential-a.potential).slice(0,8).map(player=>`<div class="prospect" data-id="${player.id}"><div><b>${player.name}</b><small>${player.position} · ${player.age} anos · ${player.overall}/${player.potential}</small></div><div class="inline-actions"><select data-setting="development-focus" data-player="${player.id}"><option ${player.developmentFocus==='Equilibrado'?'selected':''}>Equilibrado</option><option ${player.developmentFocus==='Finalização'?'selected':''}>Finalização</option><option ${player.developmentFocus==='Passe'?'selected':''}>Passe</option><option ${player.developmentFocus==='Defesa'?'selected':''}>Defesa</option><option ${player.developmentFocus==='Físico'?'selected':''}>Físico</option><option ${player.developmentFocus==='Goleiro'?'selected':''}>Goleiro</option></select><button class="tiny-button" data-action="promote-youth">Promover</button></div></div>`).join('')}</div>`).join('')}</div>`;
   }
-  if(delegated('football')&&state.departments.football.staff){
-    autoLineup();
-    report.push(`${state.departments.football.staff.name} definiu a escalação por força e condição física.`);
+
+  function renderStaff() {
+    root.innerHTML = `<div class="card control-center"><div><span class="eyebrow">Controle do clube</span><h2>Automação geral e por setor</h2><p>Contrate um responsável, defina autonomia e delegue somente o que desejar.</p></div><div class="automation-controls"><label>Modo<select data-setting="automation-mode"><option value="manual" ${state.automation.mode==='manual'?'selected':''}>Manual</option><option value="assisted" ${state.automation.mode==='assisted'?'selected':''}>Assistido</option><option value="full" ${state.automation.mode==='full'?'selected':''}>Automático geral</option></select></label><label class="checkbox"><input type="checkbox" data-setting="auto-hire" ${state.automation.autoHire?'checked':''}> Contratar automaticamente quando faltar responsável</label><button class="primary-button" data-action="hire-board">Montar diretoria completa</button></div></div>
+      <div class="department-grid section-gap">${Object.entries(state.departments).map(([id,department])=>`<div class="card department-card" data-id="${id}"><div class="card-header"><div><h3>${department.name}</h3><small>${department.focus}</small></div>${statusPill(department.delegated?'Delegado':'Manual',department.delegated?'good':'neutral')}</div>${department.staff?`<div class="staff-profile"><b>${department.staff.name}</b><span>${department.staff.role}</span><small>Competência ${department.staff.skill} · ${department.staff.personality} · ${C.money(department.staff.salary)}/sem.</small></div><p class="decision">${department.lastDecision}</p><label>Política<select data-setting="department-policy" data-department="${id}"><option ${department.policy==='Conservadora'?'selected':''}>Conservadora</option><option ${department.policy==='Equilibrada'?'selected':''}>Equilibrada</option><option ${department.policy==='Agressiva'?'selected':''}>Agressiva</option></select></label><label>Autonomia ${department.autonomy}%<input type="range" min="20" max="100" value="${department.autonomy}" data-setting="department-autonomy" data-department="${id}"></label><div class="button-row"><button class="secondary-button" data-action="toggle-delegation">${department.delegated?'Assumir controle':'Delegar área'}</button><button class="danger-button" data-action="fire-staff">Demitir</button></div>`:`<p class="muted">Nenhum ${department.role.toLowerCase()} contratado.</p><button class="secondary-button" data-action="toggle-delegation">Marcar para delegação</button>`}</div>`).join('')}</div>
+      <div class="card section-gap"><h2>Profissionais disponíveis</h2><div class="grid grid-3">${state.staffMarket.slice().sort((a,b)=>b.skill-a.skill).map(staff=>`<div class="market-card" data-id="${staff.id}"><div><b>${staff.name}</b><small>${staff.role} · Competência ${staff.skill} · ${staff.personality}</small></div><div><b>${C.money(staff.signingFee)}</b><small>${C.money(staff.salary)}/sem.</small><button class="primary-button" data-action="hire-staff">Contratar</button></div></div>`).join('')}</div></div>`;
   }
-}
 
-function autoLineup(){
-  const sorted=[...my().squad].sort((a,b)=>(b.injuredWeeks===0)-(a.injuredWeeks===0)||b.fitness-a.fitness||b.rating-a.rating);
-  my().squad.forEach(p=>p.starter=false);
-  sorted.filter(p=>p.injuredWeeks===0).slice(0,11).forEach(p=>p.starter=true);
-}
-
-function buyPlayer(id){
-  const p=state.market.find(x=>x.id===id);
-  if(!p)return;
-  if(state.balance<p.price)return alert('Saldo insuficiente.');
-  state.balance-=p.price;ledger(`Contratação de ${p.name}`,p.price,'saída');
-  my().squad.push({...p,id:Date.now(),starter:false,contractYears:3});
-  state.market=state.market.filter(x=>x.id!==id);
-  save();render();
-}
-
-function renewContract(id){
-  const p=my().squad.find(x=>x.id===id);if(!p)return;
-  const bonus=Math.round(p.salary*6);
-  if(state.balance<bonus)return alert('Saldo insuficiente para luvas.');
-  state.balance-=bonus;p.contractYears=3;p.salary=Math.round(p.salary*1.12);
-  ledger(`Renovação de ${p.name}`,bonus,'saída');save();render();
-}
-
-function hireStaff(id){
-  const candidate=state.staffMarket.find(s=>s.id===id);if(!candidate)return;
-  const deptEntry=departmentByRole(candidate.role);if(!deptEntry)return;
-  const [deptId,dept]=deptEntry;
-  if(dept.staff)return alert(`${dept.name} já possui responsável.`);
-  const signing=Math.round(candidate.salary*2);
-  if(state.balance<signing)return alert('Saldo insuficiente para contratação.');
-  state.balance-=signing;dept.staff={...candidate};dept.delegated=true;
-  state.staffMarket=state.staffMarket.filter(s=>s.id!==id);
-  ledger(`Contratação de ${candidate.name}`,signing,'saída');
-  state.automation.lastReport.unshift(`${candidate.name} assumiu ${dept.name}.`);
-  save();render();
-}
-
-function fireStaff(deptId){
-  const dept=state.departments[deptId];if(!dept?.staff)return;
-  const severance=Math.round(dept.staff.salary*3);
-  if(state.balance<severance)return alert('Saldo insuficiente para a rescisão.');
-  state.balance-=severance;ledger(`Rescisão de ${dept.staff.name}`,severance,'saída');
-  state.staffMarket.push({...dept.staff,id:Date.now()});dept.staff=null;dept.delegated=false;
-  save();render();
-}
-
-function toggleDelegation(deptId){
-  const dept=state.departments[deptId];
-  if(!dept.staff)return alert('Contrate um responsável antes de delegar.');
-  dept.delegated=!dept.delegated;
-  if(state.automation.mode==='manual'||state.automation.mode==='full')state.automation.mode='assisted';
-  save();render();
-}
-
-function promoteYouth(id, silent=false){
-  let found,category;
-  for(const cat of ['u20','u17','u15']){
-    found=state.academy[cat].find(p=>String(p.id)===String(id));
-    if(found){category=cat;break;}
+  function renderBoard() {
+    root.innerHTML = `<div class="grid grid-4">${card('Confiança',`${state.board.confidence}%`,'Risco de demissão e apoio ao projeto')}${card('Meta esportiva',state.board.objectives[0].target,`Progresso ${state.board.objectives[0].progress}%`)}${card('Risco financeiro',`${state.finance.boardRisk}%`,state.finance.financialFairPlay.status)}${card('Títulos',state.records.titles,'Histórico da carreira')}</div><div class="card section-gap"><h2>Objetivos da direção</h2>${state.board.objectives.map(objective=>`<div class="objective"><div><b>${objective.name}</b><span>${objective.target}</span></div><strong>${objective.progress}%</strong>${progress(objective.progress)}</div>`).join('')}</div>`;
   }
-  if(!found)return;
-  if(found.age<16&&!silent)return alert('Atleta ainda muito jovem para promoção.');
-  state.academy[category]=state.academy[category].filter(p=>p.id!==found.id);
-  my().squad.push({...found,id:Date.now(),salary:Math.max(18000,found.salary),contractYears:3,starter:false});
-  state.objectives[1].progress++;
-  save();render();
-}
 
-function launchCampaign(){
-  const cost=300000;if(state.balance<cost)return alert('Saldo insuficiente.');
-  state.balance-=cost;state.commercial.campaigns++;state.fans.members+=900+Math.round(state.reputation*8);
-  state.fans.satisfaction=Math.min(100,state.fans.satisfaction+4);
-  ledger('Campanha de sócio-torcedor',cost,'saída');save();render();
-}
-
-function upgradeFacility(id){
-  const facility=state.facilities[id];if(!facility||facility.level>=facility.max)return;
-  const cost=Math.round(facility.cost*(1+(facility.level-1)*.65));
-  if(state.balance<cost)return alert('Saldo insuficiente.');
-  state.balance-=cost;facility.level++;ledger(`Melhoria: ${facility.name}`,cost,'saída');save();render();
-}
-
-function treatPlayer(id){
-  const p=my().squad.find(x=>x.id===id);if(!p||p.injuredWeeks===0)return;
-  const cost=120000*p.injuredWeeks;if(state.balance<cost)return alert('Saldo insuficiente.');
-  state.balance-=cost;p.injuredWeeks=Math.max(0,p.injuredWeeks-2);
-  ledger(`Tratamento intensivo de ${p.name}`,cost,'saída');save();render();
-}
-
-function pageTitle(){
-  return {
-    dashboard:'Visão geral',squad:'Elenco',academy:'Base',staff:'Departamentos',
-    fans:'Sócios e torcida',stadium:'Ingressos e estádio',commercial:'Comercial',
-    tactics:'Táticas',league:'Classificação',transfers:'Mercado',
-    medical:'Departamento médico',facilities:'Instalações',finance:'Finanças',history:'Histórico'
-  }[view] || 'FutMaster';
-}
-
-function render(){
-  document.querySelector('#season-label').textContent=state?.season||2026;
-  document.querySelector('#club-badge').textContent=state?my().short:'FM';
-  document.querySelector('#page-title').textContent=pageTitle();
-  if(!state){
-    root.innerHTML='<div class="empty-state"><h2>Nenhuma carreira encontrada</h2><p>Crie um novo jogo para começar.</p><button class="primary-button" data-action="open-new-game">Criar carreira</button></div>';
-    return;
+  function renderFans() {
+    const totalMembers=state.fans.membershipPlans.reduce((sum,plan)=>sum+plan.members,0);
+    root.innerHTML = `<div class="grid grid-4">${card('Base de torcedores',state.fans.fanBase.toLocaleString('pt-BR'),`${state.fans.socialFollowers.toLocaleString('pt-BR')} seguidores`)}${card('Sócios ativos',totalMembers.toLocaleString('pt-BR'),`${C.money(Systems.membershipWeeklyRevenue(state))}/semana`)}${card('Satisfação',`${state.fans.satisfaction}%`,`Fidelidade ${state.fans.loyalty}%`)}${card('Pressão',`${state.fans.supporterPressure}%`,`Organizadas ${state.fans.organizedSupporters}%`)}</div><div class="grid grid-3 section-gap">${state.fans.membershipPlans.map(plan=>`<div class="card"><h2>${plan.name}</h2><strong class="big-number">${plan.members.toLocaleString('pt-BR')}</strong><small>assinantes · inadimplência ${(plan.delinquency*100).toFixed(1)}%</small><label>Mensalidade<input type="number" min="10" max="600" value="${plan.price}" data-setting="membership-price" data-plan="${plan.id}"></label><p>Receita líquida: <b>${C.money(plan.members*plan.price*(1-plan.delinquency))}/mês</b></p></div>`).join('')}</div><div class="card section-gap"><button class="primary-button" data-action="launch-campaign">Lançar campanha de sócios</button></div>`;
   }
-  const views={dashboard:dash,squad:squadView,academy:academyView,staff:staffView,fans:fansView,stadium:stadiumView,commercial:commercialView,tactics:tacticsView,league:leagueView,transfers:transfersView,medical:medicalView,facilities:facilitiesView,finance:financeView,history:historyView};
-  (views[view]||dash)();
-}
 
-function card(label,value,detail){return`<div class="card stat-card"><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`}
-function progress(value){return`<div class="progress"><span style="width:${Math.max(0,Math.min(100,value))}%"></span></div>`}
+  function renderStadium() {
+    const operation=state.stadium.lastMatchOperations;
+    root.innerHTML = `<div class="grid grid-4">${card('Capacidade',state.stadium.capacity.toLocaleString('pt-BR'),state.stadium.name)}${card('Último público',(operation?.attendance||0).toLocaleString('pt-BR'),operation?`${operation.occupancy}% de ocupação`:'Sem jogo em casa')}${card('Bilheteria',C.money(operation?.ticketRevenue||0),'Última partida em casa')}${card('Resultado do jogo',C.money(operation?.net||0),'Receitas menos operação')}</div><div class="grid grid-2 section-gap"><div class="card"><h2>Setores e preços</h2>${state.stadium.sectors.map(sector=>{const sale=operation?.sectorSales?.find(item=>item.id===sector.id);return `<div class="sector"><div><b>${sector.name}</b><small>${sector.capacity.toLocaleString('pt-BR')} lugares ${sale?`· ${sale.occupancy}% ocupados`:''}</small></div><label>R$ <input type="number" min="10" max="1500" value="${sector.price}" data-setting="ticket-price" data-sector="${sector.id}"></label></div>`;}).join('')}</div><div class="card"><h2>Operação</h2>${['pitchQuality','safety','cleanliness','transport','parking','foodQuality'].map(key=>`<div class="metric-line"><span>${{pitchQuality:'Gramado',safety:'Segurança',cleanliness:'Limpeza',transport:'Transporte',parking:'Estacionamento',foodQuality:'Alimentação'}[key]}</span><b>${state.stadium[key]}%</b>${progress(state.stadium[key])}</div>`).join('')}</div></div>`;
+  }
 
-function dash(){
-  const next=state.round<state.fixtures.length?'Preparar a próxima semana':'Temporada encerrada';
-  root.innerHTML=`
-    <div class="grid grid-4">
-      ${card('Clube',my().name,state.manager)}
-      ${card('Semana',state.week,`Rodada ${state.round}/${state.fixtures.length}`)}
-      ${card('Saldo',money(state.balance),'Caixa disponível')}
-      ${card('Gestão',state.automation.mode==='full'?'Automática':state.automation.mode==='manual'?'Manual':'Assistida',`${Object.values(state.departments).filter(d=>d.delegated).length} áreas delegadas`)}
-    </div>
-    <div class="card control-center">
-      <div><span class="eyebrow">Modelo de gestão</span><h2>Quem decide no clube?</h2><p>Contrate profissionais para cada departamento e escolha entre controle manual, assistido ou totalmente automático.</p></div>
-      <label class="compact-label">Modo
-        <select data-setting="automation">
-          <option value="manual" ${state.automation.mode==='manual'?'selected':''}>Manual — você decide tudo</option>
-          <option value="assisted" ${state.automation.mode==='assisted'?'selected':''}>Assistido — delegação por área</option>
-          <option value="full" ${state.automation.mode==='full'?'selected':''}>Automático — diretoria administra</option>
-        </select>
-      </label>
-    </div>
-    <div class="card hero"><div><span class="eyebrow">Próximo passo</span><h2>${next}</h2><p>Ao avançar, salários, mensalidades, recuperação, base, torcida e decisões delegadas são processados.</p></div><button class="primary-button" data-action="simulate">Avançar semana</button></div>
-    <div class="grid grid-3 section-gap">
-      ${card('Sócios',state.fans.members.toLocaleString('pt-BR'),`${state.fans.satisfaction}% de satisfação`)}
-      ${card('Público último jogo',state.fans.attendance.toLocaleString('pt-BR'),`${state.fans.occupancy}% de ocupação`)}
-      ${card('Equipe gestora',Object.values(state.departments).filter(d=>d.staff).length+'/8',`Qualidade média ${averageStaffSkill()}`)}
-    </div>
-    <div class="card section-gap"><h2>Relatório da diretoria</h2>${state.automation.lastReport.length?state.automation.lastReport.map(x=>`<div class="list-item"><span>Semana ${state.week}</span><b>${x}</b></div>`).join(''):'<p>Nenhuma decisão automática registrada nesta semana.</p>'}</div>
-  `;
-}
+  function renderCommercial() {
+    root.innerHTML = `<div class="grid grid-4">${card('Valor da marca',C.money(state.commercial.brandValue),`Mídia ${state.commercial.mediaReputation}`)}${card('Patrocinador',state.commercial.sponsor.name,C.money(state.commercial.sponsor.weeklyValue)+'/semana')}${card('Alcance global',state.commercial.globalReach.toLocaleString('pt-BR'),'Índice internacional')}${card('Seguidores',state.fans.socialFollowers.toLocaleString('pt-BR'),'Base digital')}</div>`;
+  }
 
-function squadView(){
-  root.innerHTML=`<div class="card"><div class="card-header"><div><h2>Elenco principal</h2><p>${my().squad.length} atletas · folha mensal ${money(my().squad.reduce((s,p)=>s+p.salary,0))}</p></div></div><div class="table-wrap"><table><thead><tr><th>Jogador</th><th>Pos.</th><th>Idade</th><th>Força</th><th>Pot.</th><th>Físico</th><th>Contrato</th><th>Salário</th><th></th></tr></thead><tbody>${my().squad.map(p=>`<tr><td>${p.name}${p.injuredWeeks?` <span class="status danger">Lesão ${p.injuredWeeks}s</span>`:''}</td><td>${p.position}</td><td>${p.age}</td><td><b>${p.rating}</b></td><td>${p.potential}</td><td>${p.fitness}%</td><td>${p.contractYears} ano(s)</td><td>${money(p.salary)}/mês</td><td><button class="small-button" data-action="renew" data-id="${p.id}">Renovar</button></td></tr>`).join('')}</tbody></table></div></div>`;
-}
+  function renderTactics() {
+    const lineup=C.selectBestLineup(state.userTeam,state.userTeam.tactics.formation);
+    root.innerHTML = `<div class="grid grid-2"><div class="card"><h2>Plano de jogo</h2><label>Formação<select data-setting="formation">${['4-2-3-1','4-3-3','4-4-2','3-5-2','5-4-1'].map(value=>`<option ${state.userTeam.tactics.formation===value?'selected':''}>${value}</option>`).join('')}</select></label><label>Mentalidade<select data-setting="mentality">${['Muito defensiva','Defensiva','Equilibrada','Ofensiva','Muito ofensiva'].map(value=>`<option ${state.userTeam.tactics.mentality===value?'selected':''}>${value}</option>`).join('')}</select></label>${rangeControl('Pressão','pressing',state.userTeam.tactics.pressing)}${rangeControl('Ritmo','tempo',state.userTeam.tactics.tempo)}${rangeControl('Amplitude','width',state.userTeam.tactics.width)}${rangeControl('Linha defensiva','defensiveLine',state.userTeam.tactics.defensiveLine)}</div><div class="pitch"><div class="pitch-title">${state.userTeam.tactics.formation} · OVR ${C.calculateTeamOverall(state.userTeam)}</div>${lineup.starters.map((entry,index)=>`<span style="left:${pitchCoordinates(index).x}%;top:${pitchCoordinates(index).y}%">${entry.assignedPosition}<small>${entry.player.name.split(' ')[0]} · ${C.round(C.calculatePlayerEffectiveRating(entry.player,entry.assignedPosition),0)}</small></span>`).join('')}</div></div>`;
+  }
 
-function academyView(){
-  const blocks=['u20','u17','u15'].map(cat=>`<div class="card"><div class="card-header"><div><h2>${cat.toUpperCase()}</h2><p>${state.academy[cat].length} atletas</p></div></div><div class="table-wrap"><table><thead><tr><th>Jogador</th><th>Pos.</th><th>Idade</th><th>Força</th><th>Potencial</th><th></th></tr></thead><tbody>${state.academy[cat].map(p=>`<tr><td>${p.name}</td><td>${p.position}</td><td>${p.age}</td><td>${p.rating}</td><td><b>${p.potential}</b></td><td><button class="small-button" data-action="promote-youth" data-id="${p.id}">Promover</button></td></tr>`).join('')}</tbody></table></div></div>`).join('');
-  root.innerHTML=`<div class="grid grid-3">${card('Centro da base','Nível '+state.facilities.academy.level,'Afeta evolução')}${card('Filosofia',state.academy.philosophy,'Modelo de formação')}${card('Promovidos',state.objectives[1].progress,'Meta: 2')}</div><div class="section-gap">${blocks}</div>`;
-}
+  function rangeControl(label,setting,value){return `<label>${label}: <b>${value}</b><input type="range" min="20" max="90" value="${value}" data-setting="${setting}"></label>`;}
+  function pitchCoordinates(index){const coords=[[50,90],[16,72],[39,72],[61,72],[84,72],[32,52],[68,52],[16,31],[50,33],[84,31],[50,12]];return {x:coords[index]?.[0]||50,y:coords[index]?.[1]||50};}
 
-function staffView(){
-  root.innerHTML=`
-    <div class="card"><div class="card-header"><div><h2>Estrutura executiva</h2><p>O profissional recebe salário e administra a área quando a delegação está ativa.</p></div></div>
-    <div class="department-grid">${Object.entries(state.departments).map(([id,d])=>`<article class="department-card"><span class="eyebrow">${d.role}</span><h3>${d.name}</h3>${d.staff?`<p><b>${d.staff.name}</b><br>Competência ${d.staff.skill} · ${money(d.staff.salary)}/mês</p><div class="button-row"><button class="${d.delegated?'primary-button':'secondary-button'}" data-action="toggle-delegation" data-id="${id}">${d.delegated?'Delegado':'Assumir manualmente'}</button><button class="danger-button" data-action="fire-staff" data-id="${id}">Demitir</button></div>`:'<p class="muted">Cargo vago. Você precisa administrar esta área.</p>'}</article>`).join('')}</div></div>
-    <div class="card section-gap"><h2>Profissionais disponíveis</h2><div class="grid grid-2">${state.staffMarket.map(s=>`<div class="market-card" data-id="${s.id}"><div><h3>${s.name}</h3><p>${s.role} · competência ${s.skill}</p></div><div><b>${money(s.salary)}/mês</b><button class="primary-button" data-action="hire-staff">Contratar</button></div></div>`).join('')||'<p>Não há candidatos disponíveis.</p>'}</div></div>`;
-}
+  function renderLeague() {
+    root.innerHTML = `<div class="card"><div class="card-header"><h2>Liga Nacional</h2><button class="primary-button" data-action="simulate-week" ${state.round>=state.fixtures.length?'disabled':''}>Jogar próxima rodada</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Clube</th><th>OVR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>PTS</th><th>Forma</th></tr></thead><tbody>${standings().map((team,index)=>`<tr class="${team.id===state.userTeamId?'user-row':''}"><td>${index+1}</td><td><b>${team.name}</b></td><td>${C.calculateTeamOverall(team)}</td><td>${team.played}</td><td>${team.wins}</td><td>${team.draws}</td><td>${team.losses}</td><td>${team.gf-team.ga}</td><td><b>${team.points}</b></td><td>${formatForm(team)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
 
-function fansView(){
-  root.innerHTML=`
-    <div class="grid grid-4">${card('Torcedores',state.fans.total.toLocaleString('pt-BR'),'Base estimada')}${card('Sócios ativos',state.fans.members.toLocaleString('pt-BR'),money(state.fans.membershipRevenue)+' acumulado')}${card('Satisfação',state.fans.satisfaction+'%',progress(state.fans.satisfaction))}${card('Fidelidade',state.fans.loyalty+'%',progress(state.fans.loyalty))}</div>
-    <div class="grid grid-2 section-gap">
-      <div class="card"><h2>Programa de sócios</h2><label>Mensalidade média<input type="number" min="10" max="300" value="${state.fans.membershipPrice}" data-setting="membership-price"></label><p>Receita semanal projetada: <b>${money(state.fans.members*state.fans.membershipPrice/4)}</b></p><button class="primary-button" data-action="campaign">Lançar campanha (${money(300000)})</button></div>
-      <div class="card"><h2>Relacionamento</h2><p>Campanhas realizadas: <b>${state.commercial.campaigns}</b></p><p>Valor da marca: <b>${state.commercial.brandValue}/100</b></p><p>Responsável: <b>${state.departments.fan.staff?.name||'Você'}</b></p></div>
-    </div>`;
-}
+  function renderTransfers() {
+    root.innerHTML = `<div class="grid grid-4">${card('Orçamento',C.money(state.finance.transferBudget),'Disponível para taxas')}${card('Folha atual',C.money(Systems.squadWages(state.userTeam)),`Limite ${C.money(state.finance.wageBudget)}`)}${card('Listados',state.userTeam.squad.filter(p=>p.transferListed).length,'Atletas disponíveis')}${card('Relatórios',state.market.length,'Precisão pelo scouting')}</div><div class="card section-gap"><h2>Mercado</h2><div class="table-wrap"><table><thead><tr><th>Jogador</th><th>Clube</th><th>Pos.</th><th>OVR/POT</th><th>Conhecimento</th><th>Valor</th><th></th></tr></thead><tbody>${state.market.sort((a,b)=>b.overall-a.overall).map(player=>`<tr data-id="${player.id}"><td><b>${player.name}</b><small>${player.nationality} · ${player.age} anos</small></td><td>${player.clubName||'Livre'}</td><td>${player.position}</td><td>${player.scoutKnowledge>55?`${player.overall}/${player.potential}`:`${player.overall-3}–${player.overall+3} / ?`}</td><td>${player.scoutKnowledge}%</td><td>${C.money(player.askingPrice)}</td><td><button class="primary-button" data-action="buy-player">Contratar</button></td></tr>`).join('')}</tbody></table></div></div>`;
+  }
 
-function stadiumView(){
-  root.innerHTML=`
-    <div class="grid grid-4">${card('Capacidade',state.fans.stadiumCapacity.toLocaleString('pt-BR'),'lugares')}${card('Último público',state.fans.attendance.toLocaleString('pt-BR'),state.fans.occupancy+'% ocupado')}${card('Bilheteria acumulada',money(state.fans.ticketRevenue),'temporada')}${card('Consumo e loja',money(state.fans.merchandiseRevenue),'temporada')}</div>
-    <div class="grid grid-2 section-gap"><div class="card"><h2>Política de ingressos</h2><label>Preço médio<input type="number" min="10" max="500" value="${state.fans.ticketPrice}" data-setting="ticket-price"></label><p>Preços maiores elevam receita por ingresso, mas podem reduzir a ocupação.</p></div><div class="card"><h2>Operação do estádio</h2><p>Nível da instalação: <b>${state.facilities.stadium.level}/5</b></p><p>Responsável: <b>${state.departments.stadium.staff?.name||'Você'}</b></p><p>Custos operacionais são descontados em cada partida em casa.</p></div></div>`;
-}
+  function renderMedical() {
+    const injured=state.userTeam.squad.filter(player=>player.injuredWeeks>0);
+    root.innerHTML = `<div class="grid grid-4">${card('Lesionados',injured.length,'Elenco profissional')}${card('Centro médico',`Nível ${state.facilities.medical.level}`,'Recuperação e prevenção')}${card('Chefe médico',state.departments.medical.staff?.name||'Não contratado',state.departments.medical.staff?`Competência ${state.departments.medical.staff.skill}`:'Gestão manual')}${card('Risco médio',`${C.round(state.userTeam.squad.reduce((sum,p)=>sum+p.injuryRisk,0)/state.userTeam.squad.length,1)}%`,'Propensão individual')}</div><div class="card section-gap"><h2>Boletim médico</h2>${injured.length?injured.map(player=>`<div class="list-item" data-id="${player.id}"><div><b>${player.name}</b><small>${player.position} · ${player.injuredWeeks} semana(s)</small></div><button class="secondary-button" data-action="treat-player">Tratamento intensivo</button></div>`).join(''):'<p>Nenhum atleta lesionado.</p>'}</div>`;
+  }
 
-function commercialView(){
-  root.innerHTML=`<div class="grid grid-3">${card('Valor da marca',state.commercial.brandValue+'/100','impacta contratos')}${card('Patrocinadores',state.sponsors.length,'contratos ativos')}${card('Loja oficial','Nível '+state.commercial.storeLevel,money(state.fans.merchandiseRevenue)+' em vendas')}</div><div class="card section-gap"><h2>Patrocínios</h2>${state.sponsors.map(s=>`<div class="list-item"><span>${s.name} · ${s.years} ano(s)</span><b>${money(s.value)}/temporada</b></div>`).join('')}</div>`;
-}
+  function renderFacilities() {
+    root.innerHTML = `<div class="facility-grid">${Object.entries(state.facilities).map(([id,facility])=>{const cost=Math.round(facility.baseCost*Math.pow(1.48,facility.level-1));return `<div class="card"><h2>${facility.name}</h2><p>Nível ${facility.level}/${facility.max}</p>${progress(facility.level/facility.max*100)}<button class="primary-button" data-id="${id}" data-action="upgrade-facility" ${facility.level>=facility.max?'disabled':''}>Melhorar por ${C.money(cost)}</button></div>`;}).join('')}</div>`;
+  }
 
-function tacticsView(){
-  root.innerHTML=`<div class="grid grid-2"><div class="card"><h2>Plano de jogo</h2><label>Formação<select data-setting="formation"><option ${state.tactics.formation==='4-2-3-1'?'selected':''}>4-2-3-1</option><option ${state.tactics.formation==='4-3-3'?'selected':''}>4-3-3</option><option ${state.tactics.formation==='3-5-2'?'selected':''}>3-5-2</option></select></label><label>Estilo<select data-setting="style"><option ${state.tactics.style==='equilibrado'?'selected':''}>equilibrado</option><option ${state.tactics.style==='ofensivo'?'selected':''}>ofensivo</option><option ${state.tactics.style==='defensivo'?'selected':''}>defensivo</option></select></label><p>Diretor responsável: <b>${state.departments.football.staff?.name||'Você'}</b></p></div><div class="pitch"><div class="pitch-title">${state.tactics.formation}</div>${my().squad.filter(p=>p.starter).map((p,i)=>`<span style="left:${12+(i%4)*25}%;top:${82-Math.floor(i/4)*28}%">${p.position}<small>${p.name.split(' ')[0]}</small></span>`).join('')}</div></div>`;
-}
+  function renderFinance() {
+    const operational=state.finance.seasonRevenue-state.finance.seasonExpenses;
+    root.innerHTML = `<div class="grid grid-4">${card('Caixa',C.money(state.finance.balance),'Disponibilidade imediata')}${card('Receitas',C.money(state.finance.seasonRevenue),'Temporada')}${card('Despesas',C.money(state.finance.seasonExpenses),'Temporada')}${card('Resultado',C.money(operational),state.finance.financialFairPlay.status)}</div><div class="card section-gap"><h2>Livro-caixa</h2><div class="table-wrap"><table><tbody>${state.finance.cashFlow.slice(0,40).map(entry=>`<tr><td>S${entry.week}</td><td>${entry.category}</td><td>${entry.description}</td><td class="${entry.amount>=0?'positive':'negative'}">${C.money(entry.amount)}</td></tr>`).join('')}</tbody></table></div><button class="secondary-button" data-action="save-backup">Exportar backup</button></div>`;
+  }
 
-function leagueView(){
-  root.innerHTML=`<div class="card"><div class="card-header"><h2>Liga Nacional</h2><button class="primary-button" data-action="simulate">Avançar semana</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Clube</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>PTS</th></tr></thead><tbody>${standings().map((t,i)=>`<tr class="${t.id===state.clubId?'user-row':''}"><td>${i+1}</td><td>${t.name}</td><td>${t.played}</td><td>${t.wins}</td><td>${t.draws}</td><td>${t.losses}</td><td>${t.gf-t.ga}</td><td><b>${t.points}</b></td></tr>`).join('')}</tbody></table></div></div>`;
-}
+  function renderWorld() {
+    root.innerHTML = `<div class="grid grid-3">${state.teams.filter(team=>team.id!==state.userTeamId).map(team=>`<div class="card"><div class="card-header"><div><h2>${team.name}</h2><small>${team.city} · reputação ${team.reputation}</small></div><div class="club-badge mini">${team.short}</div></div><p>Overall ${C.calculateTeamOverall(team)} · Estratégia ${team.aiStrategy}</p><p>Moral ${team.morale}% · Entrosamento ${team.chemistry}%</p></div>`).join('')}</div>`;
+  }
 
-function transfersView(){
-  root.innerHTML=`<div class="grid grid-2">${state.market.map(p=>`<div class="card market-card" data-id="${p.id}"><div><h3>${p.name}</h3><p>${p.position} · ${p.age} anos · força ${p.rating} · potencial ${p.potential}</p></div><div><b>${money(p.price)}</b><button class="primary-button" data-action="buy">Contratar</button></div></div>`).join('')||'<div class="card">Mercado vazio.</div>'}</div>`;
-}
+  function renderHistory() {
+    const allHistory=[...state.matchHistory,...(state.careerHistory||[])];
+    if (selectedMatchId) return renderMatchReport(allHistory.find(match=>String(match.id)===String(selectedMatchId)));
+    root.innerHTML = `<div class="card"><h2>Partidas da carreira</h2>${allHistory.length?allHistory.filter(match=>[match.homeId,match.awayId].includes(state.userTeamId)).map(match=>`<div class="list-item" data-id="${match.id}"><div><span>${match.season} · Rodada ${match.round}</span><b>${match.homeName} ${match.homeGoals} x ${match.awayGoals} ${match.awayName}</b><small>xG ${match.stats.xg[0]}–${match.stats.xg[1]}</small></div><button class="secondary-button" data-action="match-report">Súmula</button></div>`).join(''):'<p>Nenhuma partida disputada.</p>'}</div>`;
+  }
 
-function medicalView(){
-  const injured=my().squad.filter(p=>p.injuredWeeks>0);
-  root.innerHTML=`<div class="grid grid-3">${card('Lesionados',injured.length,'elenco principal')}${card('Centro médico','Nível '+state.facilities.medical.level,'reduz tempo de recuperação')}${card('Responsável',state.departments.medical.staff?.name||'Você',delegated('medical')?'gestão delegada':'gestão manual')}</div><div class="card section-gap"><h2>Atletas em tratamento</h2>${injured.map(p=>`<div class="list-item"><span>${p.name} · ${p.injuredWeeks} semana(s)</span><button class="small-button" data-action="heal" data-id="${p.id}">Tratamento intensivo</button></div>`).join('')||'<p>Não há atletas lesionados.</p>'}</div>`;
-}
+  function renderMatchReport(match) {
+    if (!match) { selectedMatchId=null; return renderHistory(); }
+    root.innerHTML = `<div class="card match-report"><button class="small-button" data-action="back-history">← Voltar</button><div class="scoreboard"><div><span>${match.homeName}</span><strong>${match.homeGoals}</strong><small>Dia ${match.performance.homeDay}</small></div><b>x</b><div><span>${match.awayName}</span><strong>${match.awayGoals}</strong><small>Dia ${match.performance.awayDay}</small></div></div><div class="match-stats"><div><b>${match.stats.possession[0]}%</b><span>Posse</span><b>${match.stats.possession[1]}%</b></div><div><b>${match.stats.shots[0]}</b><span>Finalizações</span><b>${match.stats.shots[1]}</b></div><div><b>${match.stats.xg[0]}</b><span>xG</span><b>${match.stats.xg[1]}</b></div></div></div><div class="grid grid-2 section-gap"><div class="card"><h2>Lances</h2>${match.events.map(event=>`<div class="timeline-event ${event.type}"><b>${event.minute}'</b><span>${event.text}</span></div>`).join('')}</div><div class="card"><h2>Notas</h2>${renderRatingList(match.playerRatings.home,match.homeName)}${renderRatingList(match.playerRatings.away,match.awayName)}</div></div>`;
+  }
 
-function facilitiesView(){
-  root.innerHTML=`<div class="facility-grid">${Object.entries(state.facilities).map(([id,f])=>{const cost=Math.round(f.cost*(1+(f.level-1)*.65));return`<div class="card"><span class="eyebrow">Infraestrutura</span><h2>${f.name}</h2><p>Nível <b>${f.level}/${f.max}</b></p>${progress(f.level/f.max*100)}<button class="primary-button" data-action="upgrade" data-id="${id}" ${f.level>=f.max?'disabled':''}>${f.level>=f.max?'Nível máximo':'Melhorar por '+money(cost)}</button></div>`}).join('')}</div>`;
-}
+  function renderRatingList(ratings,teamName){return `<h3>${teamName}</h3>${ratings.sort((a,b)=>b.rating-a.rating).slice(0,12).map(stat=>`<div class="rating-line"><span>${stat.name}${stat.goals?` ⚽${stat.goals}`:''}</span><b class="rating ${stat.rating>=7.5?'high':stat.rating<6?'low':''}">${stat.rating}</b></div>`).join('')}`;}
 
-function financeView(){
-  const monthlyPayroll=my().squad.reduce((s,p)=>s+p.salary,0)+Object.values(state.departments).reduce((s,d)=>s+(d.staff?.salary||0),0);
-  root.innerHTML=`<div class="grid grid-4">${card('Saldo',money(state.balance),'caixa')}${card('Folha mensal',money(monthlyPayroll),'jogadores + funcionários')}${card('Receita de sócios',money(state.fans.membershipRevenue),'acumulada')}${card('Receita de jogos',money(state.fans.ticketRevenue+state.fans.merchandiseRevenue),'acumulada')}</div><div class="card section-gap"><h2>Livro-caixa</h2><div class="table-wrap"><table><thead><tr><th>Semana</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead><tbody>${state.ledger.map(x=>`<tr><td>${x.week}</td><td>${x.description}</td><td><span class="status ${x.type==='entrada'?'good':'danger'}">${x.type}</span></td><td>${money(x.amount)}</td></tr>`).join('')}</tbody></table></div></div>`;
-}
-
-function historyView(){
-  root.innerHTML=`<div class="card"><h2>Resultados</h2>${state.history.map(h=>`<div class="list-item"><span>Rodada ${h.round} · semana ${h.week}</span><b>${h.text}</b></div>`).join('')||'<p>Nenhuma partida disputada.</p>'}</div>`;
-}
-
-render();
+  render();
+})();
