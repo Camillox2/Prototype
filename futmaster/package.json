@@ -5,7 +5,7 @@
   "description": "Manager de futebol com motor de partidas, mundo ativo e gestão automática para Web/PWA e Android.",
   "scripts": {
     "serve": "npx http-server www -p 8080 -c-1",
-    "verify": "node --check www/core.js && node --check www/match-engine.js && node --check www/systems.js && node --check www/app.js && node --check www/sw.js",
+    "verify": "node --check www/core.js && node --check www/match-engine.js && node --check www/systems.js && node --check www/rules.js && node --check www/app.js && node --check www/sw.js",
     "android:prepare": "node scripts/ensure-android.mjs",
     "android:build:debug": "npm run android:prepare && cd android && ./gradlew assembleDebug"
   },
