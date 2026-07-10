@@ -1,0 +1,61 @@
+name: FutMaster Web e Android
+
+on:
+  push:
+    branches: [feat/futmaster-mvp]
+    paths:
+      - "futmaster/**"
+      - ".github/workflows/futmaster-build.yml"
+  pull_request:
+    paths:
+      - "futmaster/**"
+      - ".github/workflows/futmaster-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar e validar
+        working-directory: futmaster
+        run: |
+          npm install
+          npm run verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: futmaster-web
+          path: futmaster/www
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - name: Gerar APK
+        working-directory: futmaster
+        run: |
+          npm install
+          npm run verify
+          npm run android:prepare
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: futmaster-apk-debug
+          path: futmaster/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
