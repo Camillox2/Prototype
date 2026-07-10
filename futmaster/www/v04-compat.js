@@ -10,6 +10,23 @@
     C.__v04ClampGuard=true;
   }
   const KEY='futmaster-save-v4';
+  const EXT_KEY='futmaster-local-career-v04';
+  const nativeSet=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key,value){
+    if(key===EXT_KEY){
+      try{
+        const extension=JSON.parse(value);
+        const supercup=extension?.competitions?.supercup;
+        if(supercup&&supercup.homeId===supercup.awayId){
+          const state=JSON.parse(localStorage.getItem(KEY)||'null');
+          const alternative=[...(state?.teams||[])].sort((a,b)=>(b.reputation||0)-(a.reputation||0)).find(team=>team.id!==supercup.homeId);
+          if(alternative)supercup.awayId=alternative.id;
+          value=JSON.stringify(extension);
+        }
+      }catch(error){console.warn('Regra da Supercopa não aplicada',error);}
+    }
+    return nativeSet.call(this,key,value);
+  };
   function patchSave(){
     try{
       const state=JSON.parse(localStorage.getItem(KEY)||'null');
@@ -20,7 +37,7 @@
       state.commercial.globalReach=Math.max(state.commercial.globalReach||0,reach);
       state.stadium=state.stadium||{};
       state.stadium.lastAttendance=Number.isFinite(state.stadium.lastAttendance)?state.stadium.lastAttendance:(state.fans?.lastAttendance||0);
-      localStorage.setItem(KEY,JSON.stringify(state));
+      nativeSet.call(localStorage,KEY,JSON.stringify(state));
     }catch(error){console.warn('Compatibilidade 0.4 não aplicada',error);}
   }
   patchSave();
