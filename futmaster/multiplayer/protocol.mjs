@@ -26,8 +26,24 @@ export function sessionToken() {
   return crypto.randomBytes(24).toString('base64url');
 }
 
-export function hashPassword(password = '') {
-  return password ? crypto.createHash('sha256').update(String(password)).digest('hex') : '';
+export function hashPassword(password = '', saltHex = crypto.randomBytes(16).toString('hex')) {
+  if (!password) return '';
+  const salt = Buffer.from(saltHex, 'hex');
+  const derived = crypto.scryptSync(String(password), salt, 32);
+  return `scrypt$${saltHex}$${derived.toString('hex')}`;
+}
+
+function verifyPasswordHash(stored, password = '') {
+  if (!stored) return true;
+  if (!stored.startsWith('scrypt$')) {
+    const legacy = crypto.createHash('sha256').update(String(password)).digest('hex');
+    return stored === legacy;
+  }
+  const [,saltHex,expectedHex] = stored.split('$');
+  if (!saltHex || !expectedHex) return false;
+  const actual = crypto.scryptSync(String(password), Buffer.from(saltHex, 'hex'), 32);
+  const expected = Buffer.from(expectedHex, 'hex');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 export function safeText(value, max = 60) {
@@ -57,7 +73,7 @@ function normalizeContext(bundle = {}) {
 
 export function createRoom({
   name = 'Sala FutMaster', mode = ROOM_MODES.SAME_LEAGUE, hostName = 'Host',
-  passwordHash = '', maxPlayers = 8, bundle = {}, serverVersion = '3.1.0'
+  passwordHash = '', maxPlayers = 8, bundle = {}, serverVersion = '3.2.0'
 } = {}) {
   if (!Object.values(ROOM_MODES).includes(mode)) throw new Error('Modo de sala inválido.');
   const normalized = normalizeContext(bundle);
@@ -81,7 +97,7 @@ export function createRoom({
 }
 
 export function verifyPassword(room, password = '') {
-  return !room.passwordHash || room.passwordHash === hashPassword(password);
+  return verifyPasswordHash(room.passwordHash, password);
 }
 
 export function memberById(room, memberId) {
