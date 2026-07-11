@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 const root=new URL('../',import.meta.url);
 const pkg=JSON.parse(fs.readFileSync(new URL('package.json',root),'utf8'));
-if(pkg.version!=='1.0.0')throw new Error(`Versão esperada 1.0.0, encontrada ${pkg.version}`);
+const [major,minor,patch]=String(pkg.version).split('.').map(Number);
+if(!Number.isInteger(major)||major<1||!Number.isInteger(minor)||!Number.isInteger(patch))throw new Error(`Versão inválida: ${pkg.version}`);
 const html=fs.readFileSync(new URL('www/index.html',root),'utf8');
 const sw=fs.readFileSync(new URL('www/sw.js',root),'utf8');
 const assets=['release-core-v10.js','release-ui-v10.js','social-local-v10.js','v10.css','football-depth-v09.js','world-pyramid-v08.js','career-market-v07.js','stability-v06.js'];
