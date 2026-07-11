@@ -2,7 +2,7 @@ name: FutMaster Web e Android
 
 on:
   push:
-    branches: [feat/futmaster-mvp]
+    branches: [main]
     paths:
       - "futmaster/**"
       - ".github/workflows/futmaster-build.yml"
@@ -18,11 +18,14 @@ permissions:
 jobs:
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: futmaster/package-lock.json
       - name: Instalar e validar
         working-directory: futmaster
         run: |
@@ -30,20 +33,24 @@ jobs:
           npm run verify
       - uses: actions/upload-artifact@v4
         with:
-          name: futmaster-web
+          name: futmaster-web-3.2
           path: futmaster/www
 
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: futmaster/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
       - uses: android-actions/setup-android@v3
       - name: Gerar APK
         working-directory: futmaster
@@ -53,9 +60,9 @@ jobs:
           npm run android:prepare
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: futmaster-apk-debug
+          name: FutMaster-3.2-debug-apk
           path: futmaster/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
