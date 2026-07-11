@@ -1,49 +1,23 @@
 (function(global){
-  'use strict';
-  const C=global.FMCore;
-  if(C&&!C.__v04ClampGuard){
-    const original=C.clamp;
-    C.clamp=function(value,min,max){
-      if(max===100&&Number(value)>100000)return Number(value);
-      return original(value,min,max);
-    };
-    C.__v04ClampGuard=true;
-  }
-  const KEY='futmaster-save-v4';
-  const EXT_KEY='futmaster-local-career-v04';
-  const nativeSet=Storage.prototype.setItem;
-  Storage.prototype.setItem=function(key,value){
-    if(key===EXT_KEY){
-      try{
-        const extension=JSON.parse(value);
-        const supercup=extension?.competitions?.supercup;
-        if(supercup&&supercup.homeId===supercup.awayId){
-          const state=JSON.parse(localStorage.getItem(KEY)||'null');
-          const alternative=[...(state?.teams||[])].sort((a,b)=>(b.reputation||0)-(a.reputation||0)).find(team=>team.id!==supercup.homeId);
-          if(alternative)supercup.awayId=alternative.id;
-          value=JSON.stringify(extension);
-        }
-      }catch(error){console.warn('Regra da Supercopa não aplicada',error);}
-    }
-    return nativeSet.call(this,key,value);
-  };
-  function patchSave(){
-    try{
-      const state=JSON.parse(localStorage.getItem(KEY)||'null');
-      if(!state)return;
-      state.commercial=state.commercial||{};
-      const reach=Number.isFinite(state.commercial.digitalReach)?state.commercial.digitalReach:(state.commercial.globalReach||0);
-      state.commercial.digitalReach=reach;
-      state.commercial.globalReach=Math.max(state.commercial.globalReach||0,reach);
-      state.stadium=state.stadium||{};
-      state.stadium.lastAttendance=Number.isFinite(state.stadium.lastAttendance)?state.stadium.lastAttendance:(state.fans?.lastAttendance||0);
-      nativeSet.call(localStorage,KEY,JSON.stringify(state));
-    }catch(error){console.warn('Compatibilidade 0.4 não aplicada',error);}
-  }
-  patchSave();
-  document.addEventListener('click',event=>{
-    const action=event.target.closest('[data-action]')?.dataset.action;
-    if(['simulate-week','simulate-month','next-season'].includes(action))setTimeout(patchSave,35);
-  },true);
-  document.addEventListener('submit',event=>{if(event.target.id==='new-game-form')setTimeout(patchSave,35);},true);
+'use strict';
+const MAIN='futmaster-save-v4';
+const OLD='futmaster-career-v04';
+const CURRENT='futmaster-local-career-v04';
+function parse(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
+function migrate(){
+ const old=localStorage.getItem(OLD), current=localStorage.getItem(CURRENT);
+ if(!current&&old)localStorage.setItem(CURRENT,old);
+ if(!old&&current)localStorage.setItem(OLD,current);
+ const s=parse(MAIN);if(!s)return;
+ s.commercial=s.commercial||{};
+ if(!Number.isFinite(s.commercial.digitalReach))s.commercial.digitalReach=Number(s.commercial.globalReach)||0;
+ if(!Number.isFinite(s.commercial.globalReach))s.commercial.globalReach=s.commercial.digitalReach;
+ if(!Number.isFinite(s.commercial.brandValue)||s.commercial.brandValue<1000)s.commercial.brandValue=Math.max(1_000_000,(s.userTeamId?60:45)*250_000);
+ s.stadium=s.stadium||{};
+ if(!Number.isFinite(s.stadium.lastAttendance))s.stadium.lastAttendance=Number(s.fans?.lastAttendance)||0;
+ localStorage.setItem(MAIN,JSON.stringify(s));
+}
+migrate();
+document.addEventListener('click',e=>{if(['simulate-week','simulate-month','next-season'].includes(e.target.closest('[data-action]')?.dataset.action))setTimeout(migrate,80);},true);
+document.addEventListener('submit',e=>{if(e.target.id==='new-game-form')setTimeout(migrate,120);},true);
 })(window);
