@@ -1,12 +1,13 @@
 {
-  "name": "FutMaster",
+  "name": "FutMaster 1.0",
   "short_name": "FutMaster",
-  "description": "Manager de futebol original para Web e Android.",
+  "description": "Manager de futebol local com clube, seleção, mercado, automação e conteúdo privado importável.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#020617",
   "theme_color": "#0f172a",
-  "lang": "pt-BR"
+  "lang": "pt-BR",
+  "categories": ["games", "sports"]
 }
