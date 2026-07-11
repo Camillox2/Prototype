@@ -1,0 +1,44 @@
+(function(global){
+'use strict';
+const C=global.FMCore;
+const MAIN='futmaster-save-v4',KEY='futmaster-media-v13',SOCIAL='futmaster-social-v10';
+const VIEWS={brandstudio:'Uniformes e marca',mediacenter:'TV e imprensa',faces:'Faces e perfis'};
+const SHOWS=['Mesa da Rodada','Central do Mercado','Jogo Aberto Local','Análise 90','Noite de Clássico'];
+const SPONSORS=['NovaPay','CloudPeak','Verde Energia','Atlas Motors','Viva Saúde','Orbe Telecom'];
+let active=null;
+function bindNavigationScope(){document.addEventListener('click',event=>{const item=event.target.closest?.('.nav-item');if(item&&!item.matches('[data-v13-view]')){active=null;}},true);}
+
+function get(k,f=null){try{return JSON.parse(localStorage.getItem(k)||'null')??f;}catch{return f;}}
+function set(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function state(){return get(MAIN);}
+function save(s){localStorage.setItem(MAIN,JSON.stringify(s));}
+function team(s){return s.teams.find(t=>t.id===s.userTeamId);}
+function sig(s){return `${s.managerName}|${s.teams?.[0]?.squad?.[0]?.id||'new'}`;}
+function create(s){const t=team(s);return {version:13,signature:sig(s),lastSeason:s.season,lastWeek:s.week,kits:{home:{primary:t.colors?.[0]||'#1573ff',secondary:t.colors?.[1]||'#ffffff',pattern:'Liso'},away:{primary:'#ffffff',secondary:t.colors?.[0]||'#1573ff',pattern:'Faixa'},third:{primary:'#111827',secondary:'#34d399',pattern:'Degradê'},goalkeeper:{primary:'#f59e0b',secondary:'#111827',pattern:'Liso'}},sponsor:{name:C.pick(SPONSORS),value:2_500_000,approval:70,expires:s.season+2},shows:[],rumors:[],hashtags:[],playerPosts:[],settings:{autoMedia:true,autoPlayers:true}};}
+function data(s){let d=get(KEY);if(!d||d.signature!==sig(s)){d=create(s);set(KEY,d);}return d;}
+function hash(text){let h=2166136261;for(const c of String(text)){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function face(p){const h=hash(p.id),skin=['#f4c7a1','#d99b6c','#a9673f','#6f4127'][h%4],hair=['#1f1712','#5b321b','#d4a15c','#111827'][Math.floor(h/4)%4],bg=['#1d4ed8','#059669','#7c3aed','#be123c'][Math.floor(h/16)%4],mouth=(h%3===0?'M34 62 Q50 70 66 62':'M36 64 L64 64');return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="${bg}"/><circle cx="50" cy="48" r="29" fill="${skin}"/><path d="M22 42 Q26 10 50 12 Q80 12 78 43 Q65 30 50 31 Q34 29 22 42" fill="${hair}"/><circle cx="39" cy="49" r="3"/><circle cx="61" cy="49" r="3"/><path d="${mouth}" stroke="#552c22" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="30" y="78" width="40" height="22" rx="10" fill="${team(state())?.colors?.[0]||'#fff'}"/></svg>`)}`;}
+function mediaWeek(s,d){
+ const t=team(s),m=(s.matchHistory||[]).find(x=>x.homeId===t.id||x.awayId===t.id);
+ let resultDelta=0;
+ if(m){
+  const home=m.homeId===t.id,own=home?m.homeGoals:m.awayGoals,opp=home?m.awayGoals:m.homeGoals;
+  resultDelta=own>opp?1:own<opp?-1:0;
+  const result=resultDelta>0?'vitória':resultDelta<0?'derrota':'empate';
+  d.shows.unshift({id:C.uid('show'),week:s.week,show:C.pick(SHOWS),headline:`${t.name}: ${result} por ${own} a ${opp}`,rating:C.randomInt(1,10),tone:resultDelta>0?'positivo':resultDelta<0?'crítico':'neutro'});
+ }
+ if(C.chance(.35)){const p=C.pick(t.squad),positive=(p.form||0)>=6.8;d.rumors.unshift({id:C.uid('rumor'),week:s.week,text:positive?`${p.name} entrou no radar de clubes estrangeiros.`:`Comissão avalia o momento de ${p.name}.`,truth:C.chance(.45),playerId:p.id});}
+ if(d.settings.autoPlayers){const p=C.pick(t.squad);if(p)d.playerPosts.unshift({id:C.uid('pp'),week:s.week,playerId:p.id,player:p.name,text:C.pick(['Seguimos trabalhando.','Obrigado pelo apoio da torcida!','Cabeça no próximo jogo.','Vitória importante do grupo.','Semana de muito foco.']),likes:C.randomInt(500,25000)});}
+ const trendPlayer=C.pick(t.squad);d.hashtags=[`#${t.short}`,`#${s.managerName.split(' ')[0]}`,trendPlayer?`#${trendPlayer.name.split(' ')[0]}`:'#FutMaster'];
+ d.shows=d.shows.slice(0,80);d.rumors=d.rumors.slice(0,80);d.playerPosts=d.playerPosts.slice(0,80);
+ if(d.sponsor){d.sponsor.approval=C.clamp(d.sponsor.approval+resultDelta*2,0,100);if(d.sponsor.approval<25)d.shows.unshift({week:s.week,show:'Mercado da Bola',headline:`${d.sponsor.name} ameaça rever contrato com ${t.name}`,rating:8,tone:'crítico'});}
+}
+function weekly(s,d){if(d.lastSeason!==s.season){d.lastSeason=s.season;d.lastWeek=0;if(d.sponsor.expires<=s.season)d.sponsor={name:C.pick(SPONSORS),value:Math.round((team(s).reputation||60)*60000),approval:70,expires:s.season+2};}const steps=Math.min(12,Math.max(0,s.week-d.lastWeek));for(let i=0;i<steps;i++)if(d.settings.autoMedia)mediaWeek(s,d);d.lastWeek=s.week;}
+function addNav(){const nav=document.querySelector('.nav-list');if(!nav||nav.querySelector('[data-v13-view]'))return;const before=nav.querySelector('[data-view="history"]');Object.entries(VIEWS).forEach(([id,label])=>{const b=document.createElement('button');b.className='nav-item';b.dataset.v13View=id;b.textContent=label;nav.insertBefore(b,before||null);b.onclick=()=>{document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));b.classList.add('active');active=id;render(id);};});}
+const stat=(l,v,x)=>`<div class="card stat-card"><span>${l}</span><strong>${v}</strong><small>${x}</small></div>`;
+function kitCard(name,k,id){return `<div class="card"><h3>${name}</h3><div class="kit-preview ${k.pattern.toLowerCase().replace('ê','e')}" style="--kit1:${k.primary};--kit2:${k.secondary}"><span>${team(state()).short}</span></div><label>Principal<input type="color" data-kit="${id}" data-field="primary" value="${k.primary}"></label><label>Secundária<input type="color" data-kit="${id}" data-field="secondary" value="${k.secondary}"></label><label>Padrão<select data-kit="${id}" data-field="pattern">${['Liso','Faixa','Listrado','Degradê'].map(x=>`<option ${k.pattern===x?'selected':''}>${x}</option>`).join('')}</select></label></div>`;}
+function render(view){const s=state(),root=document.querySelector('#app-view');if(!s||!root)return;const d=data(s);weekly(s,d);set(KEY,d);document.querySelector('#page-title').textContent=VIEWS[view];if(view==='brandstudio')root.innerHTML=`<div class="grid grid-4">${stat('Patrocinador',d.sponsor.name,C.money(d.sponsor.value))}${stat('Aprovação',`${d.sponsor.approval}%`,'Marca')}${stat('Fim do contrato',d.sponsor.expires,'Temporada')}${stat('Alcance',s.commercial?.digitalReach||0,'Seguidores digitais')}</div><div class="grid grid-4 section-gap">${kitCard('Principal',d.kits.home,'home')}${kitCard('Reserva',d.kits.away,'away')}${kitCard('Terceiro',d.kits.third,'third')}${kitCard('Goleiro',d.kits.goalkeeper,'goalkeeper')}</div>`;if(view==='mediacenter')root.innerHTML=`<div class="grid grid-3">${stat('Programas',d.shows.length,'Debates')}${stat('Rumores',d.rumors.length,'Mercado e bastidores')}${stat('Hashtags',d.hashtags.join(' '),'Assuntos do momento')}</div><div class="grid grid-2 section-gap"><div class="card"><h2>Televisão</h2>${d.shows.slice(0,20).map(x=>`<div class="media-item ${x.tone}"><b>${x.show}</b><span>${x.headline}</span><small>Repercussão ${x.rating}/10</small></div>`).join('')||'<p class="muted">Sem programas.</p>'}</div><div class="card"><h2>Rumores</h2>${d.rumors.slice(0,20).map(x=>`<div class="list-item"><b>${x.text}</b><span class="status ${x.truth?'good':'neutral'}">${x.truth?'Confirmado':'Rumor'}</span></div>`).join('')||'<p class="muted">Sem rumores.</p>'}</div></div><div class="card section-gap"><h2>Publicações dos jogadores</h2>${d.playerPosts.slice(0,15).map(x=>`<div class="player-post"><b>${x.player}</b><p>${x.text}</p><small>♥ ${x.likes}</small></div>`).join('')}</div>`;if(view==='faces'){root.innerHTML=`<div class="face-grid">${team(s).squad.map(p=>`<div class="card face-card"><img src="${face(p)}" alt="Avatar de ${p.name}"><div><b>${p.name}</b><small>${p.position} · ${p.age} anos</small><span>OVR ${p.overall} · ${p.nationality}</span></div></div>`).join('')}</div>`;}}
+function bind(){document.addEventListener('change',e=>{const kit=e.target.dataset.kit;if(!kit)return;const s=state(),d=data(s);d.kits[kit][e.target.dataset.field]=e.target.value;set(KEY,d);if(active==='brandstudio')render(active);});document.addEventListener('click',e=>{if(['simulate-week','simulate-month','next-season'].includes(e.target.closest('[data-action]')?.dataset.action))setTimeout(()=>{const s=state();if(!s)return;const d=data(s);weekly(s,d);set(KEY,d);if(active)render(active);},260);},true);}
+function init(){bindNavigationScope();addNav();const s=state();if(s){const d=data(s);weekly(s,d);set(KEY,d);}bind();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})(window);
