@@ -1,0 +1,1 @@
+.relationship-row{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line,#27364a)}.relationship-row>div:first-child{display:grid;gap:4px}.relationship-row .status{margin-top:4px;width:max-content}@media(max-width:700px){.relationship-row{align-items:flex-start;flex-direction:column}}
