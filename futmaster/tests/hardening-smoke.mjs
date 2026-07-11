@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const root=new URL('../',import.meta.url),read=f=>fs.readFileSync(new URL(f,root),'utf8');
+const html=read('www/index.html'),preflight=read('www/preflight-v32.js'),hardening=read('www/hardening-v32.js'),css=read('www/v32.css'),protocol=read('multiplayer/protocol.mjs'),workflow=read('../.github/workflows/futmaster-build.yml');
+const issues=[];
+for(const marker of ['futmaster-errors-v32','unhandledrejection','MutationObserver'])if(!preflight.includes(marker))issues.push(`preflight sem ${marker}`);
+for(const marker of ['futmaster-recovery-v32','normalizeState','checkpoint','restore','Diagnóstico','FMStorageNamespace','removeWomen'])if(!hardening.includes(marker))issues.push(`hardening sem ${marker}`);
+for(const marker of ['--touch:44px','safe-area-inset-bottom','scroll-snap-type','focus-visible'])if(!css.includes(marker))issues.push(`responsividade sem ${marker}`);
+if(!protocol.includes('scrypt$')||!protocol.includes('timingSafeEqual'))issues.push('senha multiplayer sem scrypt');
+if(!html.includes('preflight-v32.js')||!html.includes('hardening-v32.js')||!html.includes('v32.css'))issues.push('assets 3.2 ausentes do HTML');
+if(!workflow.includes('branches: [main]')||!workflow.includes('assembleDebug'))issues.push('workflow final incorreto');
+if(issues.length)throw new Error(issues.join('\n'));
+console.log(JSON.stringify({status:'hardening-ok',checkpoint:true,diagnostics:true,responsive:true,scrypt:true}));
