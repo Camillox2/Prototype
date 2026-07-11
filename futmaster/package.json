@@ -1,12 +1,12 @@
 {
   "name": "futmaster",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
-  "description": "Manager de futebol local com pirâmide mundial, calendário real, mercado vivo, scouting, carreira e automação total.",
+  "description": "Manager de futebol local com tática profunda, treino semanal, medicina avançada, pirâmide mundial e automação total.",
   "scripts": {
     "serve": "npx http-server www -p 8080 -c-1",
     "test": "node tests/simulation-smoke.mjs",
-    "verify": "node --check www/core.js && node --check www/v04-compat.js && node --check www/match-engine.js && node --check www/systems.js && node --check www/rules.js && node --check www/app.js && node --check www/career-v04.js && node --check www/international-v04.js && node --check www/universe-v05.js && node --check www/match2d-v05.js && node --check www/stability-v06.js && node --check www/career-market-v07.js && node --check www/world-pyramid-v08.js && node --check www/sw.js && npm test",
+    "verify": "node --check www/core.js && node --check www/v04-compat.js && node --check www/match-engine.js && node --check www/systems.js && node --check www/rules.js && node --check www/app.js && node --check www/career-v04.js && node --check www/international-v04.js && node --check www/universe-v05.js && node --check www/match2d-v05.js && node --check www/stability-v06.js && node --check www/career-market-v07.js && node --check www/world-pyramid-v08.js && node --check www/football-depth-v09.js && node --check www/sw.js && npm test",
     "android:prepare": "node scripts/ensure-android.mjs",
     "android:build:debug": "npm run android:prepare && cd android && ./gradlew assembleDebug"
   },
