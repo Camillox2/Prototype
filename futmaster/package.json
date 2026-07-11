@@ -1,12 +1,12 @@
 {
   "name": "futmaster",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Manager de futebol local completo com partida 2D avançada, mídia, calendário, negociações, relações, ligas, seleções e automação total.",
+  "description": "Manager de futebol local completo com premiações masculinas, partida 2D, mídia, calendário, negociações, relações, ligas, seleções e automação total.",
   "scripts": {
     "serve": "npx http-server www -p 8080 -c-1",
-    "test": "node tests/simulation-smoke.mjs && node tests/release-smoke.mjs && node tests/review-smoke.mjs",
-    "verify": "node --check www/core.js && node --check www/v04-compat.js && node --check www/match-engine.js && node --check www/systems.js && node --check www/rules.js && node --check www/app.js && node --check www/career-v04.js && node --check www/international-v04.js && node --check www/universe-v05.js && node --check www/match2d-v05.js && node --check www/stability-v06.js && node --check www/career-market-v07.js && node --check www/world-pyramid-v08.js && node --check www/football-depth-v09.js && node --check www/release-core-v10.js && node --check www/release-ui-v10.js && node --check www/social-local-v10.js && node --check www/management-v11.js && node --check www/calendar-v12.js && node --check www/media-v13.js && node --check www/review-fixes-v20.js && node --check www/match-v20.js && node --check www/sw.js && npm test",
+    "test": "node tests/simulation-smoke.mjs && node tests/release-smoke.mjs && node tests/review-smoke.mjs && node tests/awards-smoke.mjs",
+    "verify": "node --check www/core.js && node --check www/v04-compat.js && node --check www/match-engine.js && node --check www/systems.js && node --check www/rules.js && node --check www/app.js && node --check www/career-v04.js && node --check www/international-v04.js && node --check www/universe-v05.js && node --check www/match2d-v05.js && node --check www/stability-v06.js && node --check www/career-market-v07.js && node --check www/world-pyramid-v08.js && node --check www/football-depth-v09.js && node --check www/release-core-v10.js && node --check www/release-ui-v10.js && node --check www/social-local-v10.js && node --check www/management-v11.js && node --check www/calendar-v12.js && node --check www/media-v13.js && node --check www/review-fixes-v20.js && node --check www/match-v20.js && node --check www/awards-v21.js && node --check www/sw.js && npm test",
     "android:prepare": "node scripts/ensure-android.mjs",
     "android:build:debug": "npm run android:prepare && cd android && ./gradlew assembleDebug"
   },
