@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#07111f" />
-  <meta name="description" content="FutMaster 1.3, manager de futebol local com uniformes, patrocinadores, imprensa, avatares, calendário, negociações e automação." />
+  <meta name="description" content="FutMaster 2.0, manager de futebol local com partida 2D avançada, universo completo, automação e conteúdo privado importável." />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
@@ -18,12 +18,13 @@
   <link rel="stylesheet" href="v11.css" />
   <link rel="stylesheet" href="v12.css" />
   <link rel="stylesheet" href="v13.css" />
-  <title>FutMaster 1.3</title>
+  <link rel="stylesheet" href="v20.css" />
+  <title>FutMaster 2.0</title>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Navegação principal">
-      <div class="brand"><div class="brand-mark">FM</div><div><strong>FutMaster</strong><span>Gestão total do clube</span></div></div>
+      <div class="brand"><div class="brand-mark">FM</div><div><strong>FutMaster</strong><span>Universo do futebol</span></div></div>
       <nav class="nav-list">
         <button class="nav-item active" data-view="dashboard">Visão geral</button>
         <button class="nav-item" data-view="calendar">Jogos</button>
@@ -78,6 +79,8 @@
   <script src="management-v11.js" defer></script>
   <script src="calendar-v12.js" defer></script>
   <script src="media-v13.js" defer></script>
+  <script src="review-fixes-v20.js" defer></script>
+  <script src="match-v20.js" defer></script>
   <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));</script>
 </body>
 </html>
