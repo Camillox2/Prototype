@@ -24,6 +24,9 @@
 futmaster/private-content/
 futmaster/generated-packs/
 
+# FutMaster multiplayer runtime data
+futmaster/multiplayer/data/
+
 # Android and Node build output
 futmaster/node_modules/
 futmaster/android/.gradle/
