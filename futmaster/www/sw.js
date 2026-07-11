@@ -1,5 +1,5 @@
-const CACHE='futmaster-v9';
-const ASSETS=['./','index.html','styles.css','v04.css','v05.css','v06.css','v07.css','core.js','v04-compat.js','match-engine.js','systems.js','rules.js','app.js','career-v04.js','international-v04.js','universe-v05.js','match2d-v05.js','stability-v06.js','career-market-v07.js','manifest.webmanifest'];
+const CACHE='futmaster-v10';
+const ASSETS=['./','index.html','styles.css','v04.css','v05.css','v06.css','v07.css','v08.css','core.js','v04-compat.js','match-engine.js','systems.js','rules.js','app.js','career-v04.js','international-v04.js','universe-v05.js','match2d-v05.js','stability-v06.js','career-market-v07.js','world-pyramid-v08.js','manifest.webmanifest'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));self.skipWaiting();});
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})))});
