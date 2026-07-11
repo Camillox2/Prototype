@@ -1,133 +1,180 @@
-# FutMaster 0.4
+# FutMaster 0.5
 
-Manager de futebol original para **Web/PWA** e **Android APK**, com funcionamento totalmente local. A mesma carreira armazena clube, seleção, competições, contratos, grupo multiclubes e automações no aparelho.
+Manager de futebol original para **Web/PWA** e **Android APK**, com funcionamento totalmente local. A mesma carreira combina clube, seleção, grupo multiclubes, competições, contratos, torcida, infraestrutura e um universo dinâmico salvo no aparelho.
 
 ## Motor de partidas
 
 - simulação minuto a minuto;
-- overall por posição e penalidade por improvisação;
+- overall por posição;
 - forma, moral, físico, ritmo, entrosamento e personalidade;
-- mando, treinador, tática, expulsões, lesões e substituições;
-- posse, finalizações, xG, escanteios, faltas, cartões, gols e assistências;
-- notas e estatísticas individuais;
-- variação controlada que permite zebras raras.
+- mando, tática, treinador, expulsões, lesões e substituições;
+- posse, finalizações, xG, cartões, gols e assistências;
+- zebras raras e explicáveis;
+- clima e altitude alterando ritmo, desgaste e risco;
+- árbitros com rigor, qualidade, pressão e precisão do VAR;
+- reconstrução visual 2D baseada nos eventos da súmula.
 
-Em testes de calibração, uma equipe de nível aproximado 60 venceu uma de nível 90 em cerca de 5% dos jogos como mandante.
+A visualização 2D é uma reconstrução narrativa dos eventos calculados pelo motor, não uma física completa de vinte e dois jogadores.
 
-## Competições locais
+## Automação
+
+Há três modos principais:
+
+- **Manual**;
+- **Assistido por departamento**;
+- **Automático geral**.
+
+Áreas delegáveis:
+
+| Área | Responsável | Decisões |
+|---|---|---|
+| Futebol | Diretor de futebol | escalação, tática, contratos, inscrições e empréstimos |
+| Base | Diretor da base | desenvolvimento, foco e promoções |
+| Scouting | Chefe de scouting | observação e mercado |
+| Médico | Chefe médico | recuperação e prevenção |
+| Comercial | Diretor comercial | marca, mídia e campanhas |
+| Sócios e torcida | Diretor de relacionamento | planos, preços e retenção |
+| Estádio | Gerente de estádio | ingressos e operação |
+| Finanças | Diretor financeiro | orçamento, folha e risco |
+
+Os clubes adquiridos também podem operar automaticamente ou receber controle manual de tática, treino, autonomia e escalação.
+
+## Competições
 
 - Liga Nacional;
-- Copa Nacional com eliminatórias;
+- Copa Nacional;
 - Supercopa;
-- Copa Continental a partir da segunda temporada;
+- Copa Continental;
 - Série B simulada;
-- classificação continental;
+- Mundial de Seleções com grupos e mata-mata;
+- amistosos, Liga das Nações e eliminatórias;
+- seleções Sub-17, Sub-20 e Olímpica;
 - histórico de campeões e temporadas.
 
 ## Seleções
 
-O treinador pode comandar **clube e seleção simultaneamente**.
+O treinador pode comandar clube e seleção simultaneamente.
 
-- propostas de emprego internacional;
-- Brasil, Argentina, Portugal, Itália, Espanha, França, Alemanha, Inglaterra, Uruguai, Colômbia, Croácia e Japão;
-- convocações e seleção automática dos melhores 23;
-- amistosos, Liga das Nações e eliminatórias;
-- reputação internacional do treinador;
-- calendário e histórico próprios da seleção;
-- possibilidade de deixar a seleção sem abandonar o clube.
-
-Nenhum escudo ou identidade oficial é incluído.
+- propostas de emprego;
+- convocação;
+- calendário internacional;
+- reputação internacional;
+- Mundial de Seleções;
+- programas Sub-17, Sub-20 e Olímpico;
+- modo manual ou automático por categoria.
 
 ## Grupo multiclubes
 
-O usuário pode formar um grupo empresarial de futebol e adquirir clubes fictícios de outros países.
+- compra de clubes fictícios;
+- caixa e elenco separados;
+- técnico e autonomia próprios;
+- resultados semanais;
+- empréstimos internos;
+- scouting compartilhado;
+- controle estratégico ou manual;
+- formação, mentalidade, treino e escalação por subsidiária.
 
-- compra de clubes;
-- caixa e elenco independentes por subsidiária;
-- técnico contratado para cada clube;
-- autonomia e estratégia esportiva;
-- resultados e finanças semanais automáticos;
-- compartilhamento de scouting;
-- empréstimo de jovens entre clubes do grupo;
-- retorno de atletas ao clube principal;
-- venda automática quando uma subsidiária entra em crise.
+## Imprensa e vestiário
 
-## Contratos e mercado
+- coletivas com respostas que alteram moral, torcida, mídia e diretoria;
+- rumores e controvérsias;
+- líderes e grupos internos;
+- conflitos;
+- promessas de minutos;
+- mediação ou apoio a um dos lados;
+- coesão e hierarquia do elenco.
 
-- agentes com influência, relacionamento e comissão;
-- propostas conservadoras, justas ou generosas;
-- salário, luvas, papel no elenco e multa rescisória;
-- bônus por presença, gols e direitos de imagem;
-- empréstimos de entrada e saída;
-- divisão salarial e taxa de empréstimo;
-- janela de transferências;
-- inscrições com limite de elenco;
-- renovação automática pelo diretor de futebol.
+## Rivalidades, clima e arbitragem
 
-## Treino e logística
+- rivalidades que aumentam após jogos equilibrados e partidas violentas;
+- retrospecto dos clássicos;
+- chuva, calor, frio, vento e temporal;
+- condição do gramado e altitude;
+- árbitros com perfis diferentes;
+- decisões do VAR e controvérsias.
 
-- intensidade leve, moderada, alta ou extrema;
-- foco em ataque, defesa, físico, posse, bola parada ou equilíbrio;
-- evolução de atributos;
-- risco de lesão relacionado à intensidade;
-- dia de descanso;
-- transporte por ônibus, avião comercial ou voo fretado;
-- hotel econômico, confortável ou de luxo;
-- custos e impacto físico em partidas fora.
+## Regulamentos e punições
 
-## Conselho, SAF e investidores
+- limite de elenco;
+- limite de estrangeiros;
+- auditorias;
+- multas;
+- bloqueio de transferências;
+- partidas com portões fechados;
+- inspeção de segurança e compliance.
 
-- clube associativo;
-- presidente e perfil político;
-- eleições periódicas;
-- aprovação do conselho;
-- limite de endividamento;
-- propostas de grupos locais, nacionais e globais;
-- conversão para SAF;
-- participação vendida, aporte e exigências do investidor.
+## Estádio e infraestrutura
 
-## Gestão automática
+Projetos de longo prazo:
 
-Há três modos:
+- nova arquibancada;
+- cobertura integral;
+- museu;
+- hotel;
+- hub de transporte;
+- cidade esportiva;
+- novo estádio.
 
-- **Manual:** todas as decisões ficam com o jogador;
-- **Assistido:** setores específicos são delegados;
-- **Automático geral:** a diretoria opera todas as áreas.
+As obras possuem custo, duração e efeitos permanentes.
 
-Departamentos automatizáveis:
+## Futebol feminino
 
-| Área | Responsável | Decisões |
-|---|---|---|
-| Futebol | Diretor de futebol | escalação, tática, inscrições, contratos e empréstimos |
-| Base | Diretor da base | foco de treino, desenvolvimento e promoções |
-| Scouting | Chefe de scouting | relatórios e novos alvos |
-| Médico | Chefe médico | recuperação, prevenção e ajuste de carga |
-| Comercial | Diretor comercial | marca, alcance e campanhas |
-| Sócios e torcida | Diretor de relacionamento | planos, preços e retenção |
-| Estádio | Gerente de estádio | ingressos e operação |
-| Finanças | Diretor financeiro | orçamento, folha, dívida e risco |
+- criação do departamento;
+- elenco e finanças próprios;
+- modo manual ou automático;
+- investimento baixo, moderado ou alto;
+- categorias de base;
+- calendário e resultados;
+- reputação e títulos.
 
-Os clubes adquiridos também funcionam automaticamente com gestor, estratégia e autonomia próprios.
+## Carreira e legado
 
-## Editor e armazenamento local
+- salário e patrimônio pessoal do treinador;
+- investimentos particulares;
+- biografia;
+- Hall da Fama;
+- ídolos;
+- camisas aposentadas;
+- recordes da era;
+- histórico de temporadas.
 
-- editor local de nome, sigla, estádio e caixa;
-- exportação da carreira em JSON;
-- save principal e módulos complementares no `localStorage`;
-- funcionamento offline via PWA;
-- nenhuma conta, backend ou banco de dados externo.
+## Contratos, mercado e governança
+
+A base 0.4 permanece integrada:
+
+- agentes, comissão e relacionamento;
+- salário, luvas, bônus, direitos de imagem e multa;
+- empréstimos;
+- janela e inscrições;
+- treino e logística;
+- conselho, eleições, investidores e SAF;
+- editor local;
+- exportação JSON.
+
+## Armazenamento
+
+Tudo funciona localmente:
+
+- `localStorage`;
+- PWA offline;
+- exportação de save;
+- nenhuma conta;
+- nenhum backend;
+- nenhum banco de dados externo;
+- nenhum multiplayer.
 
 ## Arquitetura
 
-- `www/core.js`: jogadores, equipes, atributos e overall;
+- `www/core.js`: atletas, equipes, atributos e overall;
 - `www/match-engine.js`: motor de partidas;
-- `www/systems.js`: departamentos, economia e mundo ativo;
-- `www/rules.js`: suspensões e lesões;
-- `www/app.js`: carreira principal e interface;
-- `www/career-v04.js`: competições, contratos, treino, logística, governança e editor;
+- `www/systems.js`: administração e mundo ativo;
+- `www/app.js`: carreira principal;
+- `www/career-v04.js`: contratos, competições, treino e governança;
 - `www/international-v04.js`: seleções e grupo multiclubes;
-- `www/v04-compat.js`: migração e consistência dos saves;
-- `www/styles.css` e `www/v04.css`: interface responsiva.
+- `www/universe-v05.js`: imprensa, vestiário, rivalidades, clima, árbitros, punições, Mundial, futebol feminino, estádio e legado;
+- `www/match2d-v05.js`: reconstrução visual 2D;
+- `www/v04-compat.js`: compatibilidade dos saves;
+- `www/styles.css`, `www/v04.css` e `www/v05.css`: interface responsiva.
 
 ## Rodar na Web
 
@@ -150,25 +197,21 @@ cd android
 ./gradlew assembleDebug
 ```
 
-O APK será gerado em:
+APK:
 
 ```text
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Dados e patch 2023/24
+## Conteúdo e direitos
 
-O patch fornecido é usado somente como referência estrutural e para futura importação local. Escudos, marcas e arquivos proprietários não são publicados. Uma versão pública deve utilizar conteúdo próprio, licenciado ou importado pelo usuário com autorização.
+Escudos, marcas e arquivos proprietários de patches não são publicados. O repositório usa clubes fictícios e está preparado para importação local de conteúdo autorizado.
 
-## Próximas camadas possíveis
+## Próximas melhorias naturais
 
-- visualização 2D das partidas;
-- entrevistas, imprensa e redes sociais;
-- rivalidades e clássicos dinâmicos;
-- arbitragem, VAR e reputação dos árbitros;
-- seleções de base e torneios Sub-20;
-- futebol feminino;
-- construção de estádios e cidades esportivas;
-- falências, recuperação judicial e punições;
-- editor avançado de campeonatos e regras;
-- histórias emergentes, biografias e hall da fama.
+- física 2D mais detalhada com vinte e dois jogadores;
+- editor completo de regulamentos e campeonatos;
+- mais países, divisões e calendários;
+- mercado mundial mais profundo entre clubes controlados pela IA;
+- falência, recuperação judicial e reestruturação de dívida mais detalhadas;
+- carreira como presidente ou proprietário após aposentadoria.

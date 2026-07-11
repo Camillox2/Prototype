@@ -1,0 +1,31 @@
+/* FutMaster 0.5 — universo local */
+.press-answers{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.rivalry-meter{min-width:150px}
+.conflict-card{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.world-groups{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.mini-table{border:1px solid var(--line);border-radius:14px;padding:14px;background:rgba(2,6,23,.28)}
+.mini-table>div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.mini-table>div:last-child{border-bottom:0}
+.awards{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;padding:14px;border-radius:14px;background:rgba(34,197,94,.08)}
+.retired-shirt{display:inline-grid;place-items:center;min-width:72px;min-height:72px;margin:6px;padding:8px;border-radius:16px;background:linear-gradient(180deg,#f8fafc,#cbd5e1);color:#0f172a;font-size:26px;font-weight:900}
+.retired-shirt small{display:block;color:#334155;font-size:10px;text-align:center}
+.match2d-card{overflow:hidden}
+.match2d-field{width:100%;aspect-ratio:1.55/1;display:block;border-radius:16px;background:#166534}
+.field-bg{fill:#166534;stroke:#dcfce7;stroke-width:1}
+.field-line{fill:none;stroke:rgba(255,255,255,.72);stroke-width:.65}
+.field-circle{fill:none}
+.team-marker{stroke:#fff;stroke-width:.65}
+.home-marker{fill:#38bdf8}
+.away-marker{fill:#fb7185}
+.ball-marker{fill:#fff;stroke:#0f172a;stroke-width:.4}
+.field-label{fill:#fff;font-size:4px;font-weight:800}
+.playback-panel{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:14px}
+.playback-panel label{margin:0;min-width:130px}
+.event-focus{display:flex;gap:12px;align-items:center;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--soft)}
+.event-focus b{font-size:22px;color:var(--accent)}
+.match2d-timeline{display:grid;gap:7px;max-height:620px;overflow:auto}
+.timeline-event{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;width:100%;padding:10px;border:1px solid var(--line);border-radius:11px;background:rgba(2,6,23,.32);color:var(--text);text-align:left;cursor:pointer}
+.timeline-event.active{border-color:var(--accent);background:rgba(34,197,94,.1)}
+.timeline-event small{text-transform:uppercase}
+@media(max-width:900px){.world-groups{grid-template-columns:1fr}.conflict-card{align-items:flex-start;flex-direction:column}}
+@media(max-width:620px){.press-answers{justify-content:flex-start}.timeline-event{grid-template-columns:38px 1fr}.timeline-event small{display:none}}
