@@ -24,16 +24,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: futmaster/package-lock.json
       - name: Instalar e validar
         working-directory: futmaster
-        run: |
-          npm install
-          npm run verify
+        run: npm install && npm run verify
       - uses: actions/upload-artifact@v4
         with:
-          name: futmaster-web-3.2
+          name: futmaster-web-3.3
           path: futmaster/www
 
   android:
@@ -44,8 +40,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: futmaster/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -54,15 +48,9 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Gerar APK
         working-directory: futmaster
-        run: |
-          npm install
-          npm run verify
-          npm run android:prepare
-          chmod +x android/gradlew
-          cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+        run: npm install && npm run verify && npm run android:prepare && chmod +x android/gradlew && cd android && ./gradlew assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: FutMaster-3.2-debug-apk
+          name: FutMaster-3.3-debug-apk
           path: futmaster/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

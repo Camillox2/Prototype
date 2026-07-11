@@ -1,13 +1,1 @@
-{
-  "name": "FutMaster 1.0",
-  "short_name": "FutMaster",
-  "description": "Manager de futebol local com clube, seleção, mercado, automação e conteúdo privado importável.",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "any",
-  "background_color": "#020617",
-  "theme_color": "#0f172a",
-  "lang": "pt-BR",
-  "categories": ["games", "sports"]
-}
+{"name":"FutMaster 3.3","short_name":"FutMaster","description":"Manager masculino com singleplayer offline, multiplayer opcional, partida 2D Pro, premiações ilustradas e automação avançada.","id":"com.vitorcamillo.futmaster","start_url":"./","scope":"./","display":"standalone","orientation":"any","background_color":"#020617","theme_color":"#07111f","lang":"pt-BR","categories":["games","sports"],"icons":[{"src":"assets/icons/futmaster.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

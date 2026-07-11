@@ -1,0 +1,13 @@
+(function(global){
+'use strict';
+const VIEW='Premiações e troféus',ART=global.FMTrophyArt||{};
+const rules=[
+ ['Bola de Ouro','ballon-dor.png'],['The Best FIFA – Melhor Jogador','the-best.png'],['The Best FIFA – Melhor Goleiro','golden-glove.png'],['The Best FIFA – Melhor Técnico','coach.png'],['Chuteira de Ouro','golden-boot.png'],['Luva de Ouro','golden-glove.png'],['Copa do Mundo','world-cup.png'],['Prêmio Puskás','puskas.png'],['Troféu Yashin','yashin.png'],['Troféu Kopa','kopa.png'],['Golden Boy','kopa.png'],['Troféu Gerd Müller','golden-boot.png'],['Troféu Johan Cruyff','coach.png'],['Rei da América','king-america.png'],['Libertadores','king-america.png'],['Sul-Americana','king-america.png'],['Melhor Jogador da Europa','europe.png'],['Champions','europe.png'],['Europa League','europe.png'],['Clube do Ano','club-year.png'],['Fair Play','fair-play.png'],['Torcida','club-year.png'],['Seleção Mundial','best-xi.png'],['Artilheiro','top-scorer.png'],['Goleiro','golden-glove.png'],['Técnico','coach.png']
+];
+function artFor(label){const found=rules.find(([name])=>label.includes(name));return ART[found?.[1]||'generic.png']||'';}
+function podium(card){if(card.querySelector('.award-podium'))return;const rows=[...card.querySelectorAll('details div')].slice(0,3);if(!rows.length)return;const box=document.createElement('div');box.className='award-podium';rows.forEach((row,i)=>{const text=row.textContent.replace(/^\s*\d+\.\s*/,'').trim(),parts=text.split(/\s+[—-]\s+/);const item=document.createElement('div');item.innerHTML=`<b>${i+1}º</b><strong>${escapeHtml(parts[0]||text)}</strong><small>${escapeHtml(parts.slice(1).join(' — '))}</small>`;box.appendChild(item);});card.appendChild(box);}
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function decorate(){document.querySelectorAll('.award-card').forEach(card=>{if(card.dataset.v33Decorated)return;const title=card.querySelector('h3')?.textContent||'';const src=artFor(title);if(src){const img=document.createElement('img');img.className='award-trophy';img.alt=`Arte original FutMaster para ${title}`;img.src=src;card.prepend(img);}card.classList.add('with-art');card.dataset.v33Decorated='1';podium(card);});const button=document.querySelector('[data-v21-view]');if(button)button.textContent=VIEW;}
+function init(){decorate();const observer=new MutationObserver(()=>requestAnimationFrame(decorate));observer.observe(document.body,{childList:true,subtree:true});document.addEventListener('click',e=>{if(e.target.closest('[data-v21-view]'))setTimeout(decorate,80);},true);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})(window);
